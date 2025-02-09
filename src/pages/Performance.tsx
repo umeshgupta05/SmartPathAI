@@ -1,0 +1,161 @@
+import { useEffect, useState, useCallback } from "react";
+import axios from "axios";
+import { Card } from "@/components/ui/card";
+import { Brain, Target, Award, TrendingUp, Lightbulb } from "lucide-react";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
+
+const Performance = () => {
+  const [performance, setPerformance] = useState({
+    learning_hours: 0,
+    average_score: 0,
+    skills_mastered: 0,
+    recent_activity: [],
+    skill_progress: []
+  });
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPerformance = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const response = await axios.get("http://localhost:5000/performance", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setPerformance(response.data);
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching performance data:", error);
+      setError(error.response?.data?.error || "Failed to fetch performance data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPerformance();
+    const intervalId = setInterval(fetchPerformance, 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, [fetchPerformance]);
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        titleColor: '#111827',
+        bodyColor: '#111827',
+        borderColor: '#e5e7eb',
+        borderWidth: 1,
+        padding: 10,
+      }
+    },
+    scales: {
+      x: { grid: { display: false } },
+      y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.1)' } }
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+  }
+
+  if (error) {
+    return <div className="min-h-screen flex items-center justify-center"><Card className="p-6 bg-red-50"><p className="text-red-600">{error}</p></Card></div>;
+  }
+
+  const chartData = {
+    labels: performance.recent_activity.map(activity => activity.date),
+    datasets: [
+      {
+        label: 'Learning Hours',
+        data: performance.recent_activity.map(activity => activity.learning_hours),
+        borderColor: 'rgb(59, 130, 246)',
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        fill: true,
+        tension: 0.4
+      },
+      {
+        label: 'Score',
+        data: performance.recent_activity.map(activity => activity.score),
+        borderColor: 'rgb(139, 92, 246)',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        fill: true,
+        tension: 0.4,
+        hidden: true
+      }
+    ]
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Performance Analytics</h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="p-6 hover:shadow-lg transition-all">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-primary/10 rounded-lg"><Brain className="h-6 w-6 text-primary" /></div>
+              <div>
+                <p className="text-sm text-gray-500">Learning Hours</p>
+                <h3 className="font-semibold">{performance.learning_hours.toFixed(1)} Hours</h3>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-6 hover:shadow-lg transition-all">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-accent/10 rounded-lg"><Target className="h-6 w-6 text-accent" /></div>
+              <div>
+                <p className="text-sm text-gray-500">Average Score</p>
+                <h3 className="font-semibold">{performance.average_score}%</h3>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-6 hover:shadow-lg transition-all">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-primary/10 rounded-lg"><Award className="h-6 w-6 text-primary" /></div>
+              <div>
+                <p className="text-sm text-gray-500">Skills Mastered</p>
+                <h3 className="font-semibold">{performance.skills_mastered} Skills</h3>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Learning Progress</h2>
+          <div className="h-[400px]"><Line data={chartData} options={chartOptions} /></div>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default Performance;
