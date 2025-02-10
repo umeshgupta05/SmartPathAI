@@ -20,7 +20,7 @@ import axios from "axios";
 import { motion } from "framer-motion";
 
 // ✅ Correct Base API URL
-const API_BASE_URL = "https://smartpathai-1.onrender.com"; 
+const API_BASE_URL = "https://smartpathai-1.onrender.com";
 
 // **Validation Schemas**
 const loginSchema = z.object({
@@ -45,7 +45,6 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ Use different schemas based on Login/Signup mode
   const form = useForm({
     resolver: zodResolver(isSignUp ? signupSchema : loginSchema),
     defaultValues: isSignUp
@@ -55,9 +54,8 @@ const Login = () => {
 
   const [selectedInterests, setSelectedInterests] = useState([]);
 
-  // ✅ Reset form when toggling between Login & Signup
   useEffect(() => {
-    form.reset(); // Force form state reset
+    form.reset(); // Reset form state when toggling between login/signup
   }, [isSignUp, form]);
 
   const handleInterestChange = (interest) => {
@@ -76,13 +74,13 @@ const Login = () => {
           name: values.name,
           email: values.email,
           password: values.password,
-          interests: selectedInterests,
+          interests: selectedInterests.length ? selectedInterests : ["General"], // Ensure at least one interest
         });
 
         if (response.status === 201) {
           toast.success("Account created successfully! Logging in...");
 
-          // Auto-login after signup
+          // ✅ Auto-login after signup
           const loginResponse = await axios.post(`${API_BASE_URL}/login`, {
             email: values.email,
             password: values.password,
