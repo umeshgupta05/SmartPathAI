@@ -41,7 +41,7 @@ const signupSchema = z
     path: ["confirmPassword"],
   });
 
-const AuthPage = () => {
+const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
@@ -226,4 +226,4 @@ const AuthPage = () => {
   );
 };
 
-export default AuthPage;
+export default Login;
