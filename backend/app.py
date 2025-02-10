@@ -71,6 +71,7 @@ def auth():
         }
         mongo.db.user.insert_one(new_user)
         message = "User created successfully!"
+        user = new_user  # Use the newly created user for the response
     else:
         # **Login Logic**
         user = mongo.db.user.find_one({"email": email})
@@ -80,7 +81,16 @@ def auth():
 
     # Generate JWT Token
     access_token = create_access_token(identity=email)
-    return jsonify({"token": access_token, "user": {"name": user.get("name", ""), "email": email}, "message": message}), 200
+    return jsonify({
+        "token": access_token,
+        "user": {
+            "name": user.get("name", ""),
+            "email": email,
+            "interests": user.get("interests", []),
+        },
+        "message": message
+    }), 200
+    
 # ------------- PROFILE MANAGEMENT -------------
 
 @app.route("/profile", methods=["GET"])
