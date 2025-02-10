@@ -42,6 +42,10 @@ ibm_authenticator = IAMAuthenticator("zDOlhxO7-cEeZSrbF3OqMEdlmToSEdBscU4_fpmCJC
 nlu = NaturalLanguageUnderstandingV1(version="2023-06-15", authenticator=ibm_authenticator)
 nlu.set_service_url("https://api.au-syd.natural-language-understanding.watson.cloud.ibm.com/instances/54be911a-88cf-4441-9695-a0422de1c839")
 
+@app.route("/")
+def home():
+    return "✅ Server is running!", 200
+
 # ------------- AUTHENTICATION SYSTEM -------------
 
 @app.route("/signup", methods=["POST"])
