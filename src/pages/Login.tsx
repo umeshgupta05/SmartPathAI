@@ -19,58 +19,76 @@ import * as z from "zod";
 import axios from "axios";
 import { motion } from "framer-motion";
 
-// ✅ Correct Base API URL
+// ✅ Backend API URL
 const API_BASE_URL = "https://smartpathai-1.onrender.com";
 
-// **Validation Schema**
-const authSchema = z
-  .object({
-    name: z.string().min(2, "Name must be at least 2 characters").optional(),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string().min(6, "Confirm password must match").optional(),
-    interests: z.array(z.string()).min(1, "Select at least one interest").optional(),
-  })
-  .refine((data) => !data.signup || data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
+// ✅ Validation Schema
+const authSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").optional(),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().optional(),
+  interests: z.array(z.string()).optional(),
+}).refine((data) => !data.signup || data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const navigate = useNavigate();
 
   const form = useForm({
     resolver: zodResolver(authSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "", interests: [] },
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      interests: [],
+    },
   });
 
-  const [selectedInterests, setSelectedInterests] = useState([]);
-
+  // Reset form when switching between login and signup
   useEffect(() => {
-    form.reset(); // Reset form on mode change
+    form.reset({
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      interests: [],
+    });
+    setSelectedInterests([]);
   }, [isSignUp, form]);
 
-  const handleInterestChange = (interest) => {
+  // Handle interest selection
+  const handleInterestChange = (interest: string) => {
     setSelectedInterests((prev) =>
-      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]
+      prev.includes(interest)
+        ? prev.filter((i) => i !== interest)
+        : [...prev, interest]
     );
   };
 
-  const onSubmit = async (values) => {
+  // Handle form submission
+  const onSubmit = async (values: any) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth`, {
+      const payload = {
         ...values,
-        signup: isSignUp, // **Tells backend if it's signup**
-      });
+        interests: isSignUp ? selectedInterests : undefined,
+        signup: isSignUp,
+      };
+
+      const response = await axios.post(`${API_BASE_URL}/auth`, payload);
 
       const { token, user } = response.data;
       localStorage.setItem("token", token);
-      toast.success(`Welcome ${user.name}! Redirecting to dashboard...`);
+      toast.success(`Welcome ${user.name || user.email}! Redirecting to dashboard...`);
       navigate("/dashboard");
     } catch (error) {
-      toast.error("❌ Authentication failed. Try again.");
       console.error("Auth error:", error);
+      toast.error("❌ Authentication failed. Please try again.");
     }
   };
 
@@ -89,7 +107,9 @@ const Login = () => {
               {isSignUp ? "Create Account" : "Welcome Back"}
             </h1>
             <p className="text-gray-500 mt-2">
-              {isSignUp ? "Sign up to start your learning journey" : "Sign in to continue learning"}
+              {isSignUp
+                ? "Sign up to start your learning journey"
+                : "Sign in to continue learning"}
             </p>
           </div>
 
@@ -160,7 +180,11 @@ const Login = () => {
                     <div className="grid grid-cols-2 gap-4">
                       {["Web Development", "AI/ML", "Data Science", "Cloud Computing"].map((interest) => (
                         <div key={interest} className="flex items-center space-x-2">
-                          <Checkbox id={interest} onCheckedChange={() => handleInterestChange(interest)} />
+                          <Checkbox
+                            id={interest}
+                            checked={selectedInterests.includes(interest)}
+                            onCheckedChange={() => handleInterestChange(interest)}
+                          />
                           <label htmlFor={interest} className="text-sm font-medium leading-none">
                             {interest}
                           </label>
@@ -179,10 +203,12 @@ const Login = () => {
 
           <div className="mt-6 text-center">
             <button
-              onClick={() => setIsSignUp((prev) => !prev)} // ✅ Toggle correctly
+              onClick={() => setIsSignUp((prev) => !prev)}
               className="text-sm text-primary hover:underline"
             >
-              {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+              {isSignUp
+                ? "Already have an account? Sign in"
+                : "Don't have an account? Sign up"}
             </button>
           </div>
         </motion.div>
