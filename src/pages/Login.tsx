@@ -22,21 +22,16 @@ import { motion } from "framer-motion";
 // ✅ Correct Base API URL
 const API_BASE_URL = "https://smartpathai-1.onrender.com";
 
-// **Validation Schemas**
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-const signupSchema = z
+// **Validation Schema**
+const authSchema = z
   .object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
+    name: z.string().min(2, "Name must be at least 2 characters").optional(),
     email: z.string().email("Invalid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string().min(6, "Confirm password must match"),
-    interests: z.array(z.string()).min(1, "Select at least one interest"),
+    confirmPassword: z.string().min(6, "Confirm password must match").optional(),
+    interests: z.array(z.string()).min(1, "Select at least one interest").optional(),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => !data.signup || data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
@@ -46,61 +41,35 @@ const Login = () => {
   const navigate = useNavigate();
 
   const form = useForm({
-    resolver: zodResolver(isSignUp ? signupSchema : loginSchema),
-    defaultValues: isSignUp
-      ? { name: "", email: "", password: "", confirmPassword: "", interests: [] }
-      : { email: "", password: "" },
+    resolver: zodResolver(authSchema),
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "", interests: [] },
   });
 
   const [selectedInterests, setSelectedInterests] = useState([]);
 
   useEffect(() => {
-    form.reset(); // Reset form state when toggling between login/signup
+    form.reset(); // Reset form on mode change
   }, [isSignUp, form]);
 
   const handleInterestChange = (interest) => {
     setSelectedInterests((prev) =>
-      prev.includes(interest)
-        ? prev.filter((i) => i !== interest)
-        : [...prev, interest]
+      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]
     );
   };
 
   const onSubmit = async (values) => {
     try {
-      if (isSignUp) {
-        // ✅ Correct **Signup API Call**
-        const response = await axios.post(`${API_BASE_URL}/signup`, {
-          name: values.name,
-          email: values.email,
-          password: values.password,
-          interests: selectedInterests.length ? selectedInterests : ["General"], // Ensure at least one interest
-        });
+      const response = await axios.post(`${API_BASE_URL}/auth`, {
+        ...values,
+        signup: isSignUp, // **Tells backend if it's signup**
+      });
 
-        if (response.status === 201) {
-          toast.success("Account created successfully! Logging in...");
-
-          // ✅ Auto-login after signup
-          const loginResponse = await axios.post(`${API_BASE_URL}/login`, {
-            email: values.email,
-            password: values.password,
-          });
-
-          const { token } = loginResponse.data;
-          localStorage.setItem("token", token);
-          toast.success("Welcome! Redirecting to dashboard...");
-          navigate("/dashboard");
-        }
-      } else {
-        // ✅ Correct **Login API Call**
-        const response = await axios.post(`${API_BASE_URL}/login`, values);
-        const { token } = response.data;
-        localStorage.setItem("token", token);
-        toast.success("Logged in successfully!");
-        navigate("/dashboard");
-      }
+      const { token, user } = response.data;
+      localStorage.setItem("token", token);
+      toast.success(`Welcome ${user.name}! Redirecting to dashboard...`);
+      navigate("/dashboard");
     } catch (error) {
-      toast.error("Authentication failed. Try again.");
+      toast.error("❌ Authentication failed. Try again.");
       console.error("Auth error:", error);
     }
   };
@@ -120,9 +89,7 @@ const Login = () => {
               {isSignUp ? "Create Account" : "Welcome Back"}
             </h1>
             <p className="text-gray-500 mt-2">
-              {isSignUp
-                ? "Sign up to start your learning journey"
-                : "Sign in to continue learning"}
+              {isSignUp ? "Sign up to start your learning journey" : "Sign in to continue learning"}
             </p>
           </div>
 
