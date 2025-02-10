@@ -7,3 +7,4 @@ numpy==1.24.0
 google-generativeai==0.3.0
 ibm-watson==6.0.0
 ibm-cloud-sdk-core==3.16.0
+gunicorn
