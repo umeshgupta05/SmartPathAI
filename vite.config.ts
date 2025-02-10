@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       "/api": {
-        target: "http://localhost:5000", // Backend server
+        target: "https://smartpathai-1.onrender.com" || "http://localhost:5000", // Backend server
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
