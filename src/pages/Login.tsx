@@ -20,7 +20,7 @@ import axios from "axios";
 import { motion } from "framer-motion";
 
 // ✅ Correct Base API URL
-const API_BASE_URL = "http://localhost:5000"; 
+const API_BASE_URL = "https://smartpathai-1.onrender.com"; 
 
 // **Validation Schemas**
 const loginSchema = z.object({
