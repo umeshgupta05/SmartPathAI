@@ -48,49 +48,39 @@ def home():
 
 # ------------- AUTHENTICATION SYSTEM -------------
 
-@app.route("/signup", methods=["POST"])
-def signup():
-    """Handles user signup and returns a JWT token."""
+@app.route("/auth", methods=["POST"])
+def auth():
     data = request.json
+    email = data.get("email")
+    password = data.get("password")
+    signup = data.get("signup", False)
 
-    if not all(k in data for k in ["name", "email", "password"]):
-        return jsonify({"message": "Missing required fields"}), 400
+    if signup:
+        # **Signup Logic**
+        if mongo.db.user.find_one({"email": email}):
+            return jsonify({"message": "User already exists"}), 400
 
-    # Check if user already exists
-    if mongo.db.user.find_one({"email": data["email"]}):
-        return jsonify({"message": "User already exists"}), 400
+        new_user = {
+            "name": data.get("name"),
+            "email": email,
+            "password": password,  # No hashing (as requested)
+            "interests": data.get("interests", []),
+            "preferences": {"pace": "moderate", "content_format": "video"},
+            "performance": {"learning_hours": 0, "average_score": 0, "skills_mastered": 0},
+            "completed_courses": []
+        }
+        mongo.db.user.insert_one(new_user)
+        message = "User created successfully!"
+    else:
+        # **Login Logic**
+        user = mongo.db.user.find_one({"email": email})
+        if not user or user["password"] != password:
+            return jsonify({"message": "Invalid credentials"}), 401
+        message = "Login successful!"
 
-    new_user = {
-        "name": data["name"],
-        "email": data["email"],
-        "password": data["password"],  # 🔴 NOTE: Password should be hashed in production!
-        "interests": data.get("interests", []),
-        "preferences": {"pace": "moderate", "content_format": "video"},
-        "performance": {"learning_hours": 0, "average_score": 0, "skills_mastered": 0},
-        "completed_courses": [],
-    }
-    
-    mongo.db.user.insert_one(new_user)
-    
-    # Generate token upon successful signup
-    access_token = create_access_token(identity=data["email"])
-    return jsonify({"message": "User created successfully", "token": access_token}), 201
-
-@app.route("/login", methods=["POST"])
-def login():
-    """Handles user login and returns a JWT token."""
-    data = request.json
-
-    if not all(k in data for k in ["email", "password"]):
-        return jsonify({"message": "Missing required fields"}), 400
-
-    user = mongo.db.user.find_one({"email": data["email"]})
-    if user and user["password"] == data["password"]:  # 🔴 NOTE: Compare hashed passwords in production!
-        access_token = create_access_token(identity=data["email"])
-        return jsonify({"token": access_token, "user": {"email": user["email"], "name": user["name"]}}), 200
-
-    return jsonify({"message": "Invalid credentials"}), 401
-
+    # Generate JWT Token
+    access_token = create_access_token(identity=email)
+    return jsonify({"token": access_token, "user": {"name": user.get("name", ""), "email": email}, "message": message}), 200
 # ------------- PROFILE MANAGEMENT -------------
 
 @app.route("/profile", methods=["GET"])
