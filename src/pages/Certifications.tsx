@@ -38,7 +38,7 @@ const Certifications = () => {
   const markAsCompleted = async (title) => {
     try {
       await axios.post(
-        "http://localhost:5000/mark_certification_completed",
+        "https://smartpathai-1.onrender.com/mark_certification_completed",
         { title },
         { headers: { Authorization: `Bearer ${token}` } }
       );
