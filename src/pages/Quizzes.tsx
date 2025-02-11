@@ -33,7 +33,7 @@ const Quiz = () => {
         return;
       }
   
-      const response = await axios.get("http://localhost:5000/generate_quiz", {
+      const response = await axios.get("https://smartpathai-1.onrender.com/generate_quiz", {
         headers: { Authorization: `Bearer ${token}` }, // Pass JWT token
       });
   
