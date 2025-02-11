@@ -33,7 +33,7 @@ const HeroSection = () => {
             <Button 
               size="lg" 
               className="bg-white text-primary hover:bg-white/90 transition-all gap-2"
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/auth')}
             >
               Get Started
               <Brain className="w-4 h-4" />
