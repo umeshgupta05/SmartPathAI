@@ -22,16 +22,13 @@ import { motion } from "framer-motion";
 // ✅ Backend API URL
 const API_BASE_URL = "https://smartpathai-1.onrender.com";
 
-// ✅ Validation Schema
+// ✅ Fix schema validation issues
 const authSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").optional(),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().optional(),
   interests: z.array(z.string()).optional(),
-}).refine((data) => !data.signup || data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
 });
 
 const Login = () => {
@@ -65,52 +62,46 @@ const Login = () => {
   // Handle interest selection
   const handleInterestChange = (interest: string) => {
     setSelectedInterests((prev) =>
-      prev.includes(interest)
-        ? prev.filter((i) => i !== interest)
-        : [...prev, interest]
+      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]
     );
   };
 
-  // Handle form submission
+  // ✅ Handle form submission
   const onSubmit = async (values: any) => {
-  try {
-    console.log("Submitting form:", values);
+    try {
+      console.log("Submitting form:", values);
 
-    const payload = {
-      ...values,
-      interests: isSignUp ? selectedInterests : undefined,
-      signup: isSignUp,
-    };
+      const payload = {
+        name: isSignUp ? values.name : undefined,
+        email: values.email,
+        password: values.password,
+        confirmPassword: isSignUp ? values.confirmPassword : undefined,
+        interests: isSignUp ? selectedInterests : undefined,
+        signup: isSignUp,
+      };
 
-    console.log("Payload sent to API:", payload);
+      console.log("Payload sent to API:", payload);
 
-    const response = await axios.post(`${API_BASE_URL}/auth`, payload, {
-      headers: { "Content-Type": "application/json" }, // ✅ Fix: Add Content-Type
-    });
+      const response = await axios.post(`${API_BASE_URL}/auth`, payload, {
+        headers: { "Content-Type": "application/json" },
+      });
 
-    console.log("API Response:", response.data);
+      console.log("API Response:", response.data);
 
-    if (!response.data.token) {
-      throw new Error("Token missing from API response");
+      if (!response.data.token) {
+        throw new Error("Token missing from API response");
+      }
+
+      const { token, user } = response.data;
+      localStorage.setItem("token", token);
+      toast.success(`Welcome ${user.name || user.email}! Redirecting to dashboard...`);
+
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Auth error:", error);
+      toast.error(error.response?.data?.message || "❌ Authentication failed!");
     }
-
-    const { token, user } = response.data;
-    localStorage.setItem("token", token);
-    toast.success(`Welcome ${user.name || user.email}! Redirecting to dashboard...`);
-    
-    navigate("/dashboard");
-  } catch (error) {
-    console.error("Auth error:", error);
-
-    if (error.response) {
-      console.log("Error Response:", error.response.data);
-      toast.error(error.response.data.message || "Authentication failed!");
-    } else {
-      toast.error("❌ Network error. Please try again.");
-    }
-  }
-};
-
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/5 p-6">
