@@ -13,7 +13,7 @@ const LearningPath = () => {
   useEffect(() => {
     const fetchLearningPath = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/learning_path", {
+        const response = await axios.get("https://smartpathai-1.onrender.com/learning_path", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setLearningPath(response.data);
