@@ -12,7 +12,7 @@ import os
 import json
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+CORS(app, origins=["https://smart-path-ai.vercel.app"])
 
 # JWT Configuration
 app.config["JWT_SECRET_KEY"] = "your_secret_key"
