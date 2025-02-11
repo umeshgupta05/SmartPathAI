@@ -22,7 +22,7 @@ const CourseRecommendations = () => {
         setCourses(response.data);
 
         // Fetch user progress (completed courses)
-        const progressResponse = await axios.get("http://localhost:5000/user_progress", {
+        const progressResponse = await axios.get("https://smartpathai-1.onrender.com/user_progress", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -40,7 +40,7 @@ const CourseRecommendations = () => {
   const markAsComplete = async (courseTitle) => {
     try {
       await axios.post(
-        "http://localhost:5000/mark_completed",
+        "https://smartpathai-1.onrender.com/mark_completed",
         { courseTitle },
         { headers: { Authorization: `Bearer ${token}` } }
       );
