@@ -14,7 +14,7 @@ const CourseRecommendations = () => {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/recommend_courses", {
+        const response = await axios.get("https://smartpathai-1.onrender.com/recommend_courses", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
