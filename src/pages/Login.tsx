@@ -73,24 +73,44 @@ const Login = () => {
 
   // Handle form submission
   const onSubmit = async (values: any) => {
-    try {
-      const payload = {
-        ...values,
-        interests: isSignUp ? selectedInterests : undefined,
-        signup: isSignUp,
-      };
+  try {
+    console.log("Submitting form:", values);
 
-      const response = await axios.post(`${API_BASE_URL}/auth`, payload);
+    const payload = {
+      ...values,
+      interests: isSignUp ? selectedInterests : undefined,
+      signup: isSignUp,
+    };
 
-      const { token, user } = response.data;
-      localStorage.setItem("token", token);
-      toast.success(`Welcome ${user.name || user.email}! Redirecting to dashboard...`);
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Auth error:", error);
-      toast.error("❌ Authentication failed. Please try again.");
+    console.log("Payload sent to API:", payload);
+
+    const response = await axios.post(`${API_BASE_URL}/auth`, payload, {
+      headers: { "Content-Type": "application/json" }, // ✅ Fix: Add Content-Type
+    });
+
+    console.log("API Response:", response.data);
+
+    if (!response.data.token) {
+      throw new Error("Token missing from API response");
     }
-  };
+
+    const { token, user } = response.data;
+    localStorage.setItem("token", token);
+    toast.success(`Welcome ${user.name || user.email}! Redirecting to dashboard...`);
+    
+    navigate("/dashboard");
+  } catch (error) {
+    console.error("Auth error:", error);
+
+    if (error.response) {
+      console.log("Error Response:", error.response.data);
+      toast.error(error.response.data.message || "Authentication failed!");
+    } else {
+      toast.error("❌ Network error. Please try again.");
+    }
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/5 p-6">
