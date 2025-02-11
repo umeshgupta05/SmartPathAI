@@ -50,7 +50,7 @@ const Dashboard = () => {
     setInput("");
 
     try {
-      const response = await axios.post("http://localhost:5000/chatbot", { message: input }, {
+      const response = await axios.post("https://smartpathai-1.onrender.com/chatbot", { message: input }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setMessages([...newMessages, { sender: "bot", text: response.data.response }]);
