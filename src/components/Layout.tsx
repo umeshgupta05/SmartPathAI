@@ -37,7 +37,7 @@ const Layout = ({ children }: LayoutProps) => {
   ];
 
   const isHomePage = location.pathname === "/";
-  const isLoginPage = location.pathname === "/login";
+  const isLoginPage = location.pathname === "/auth";
 
   if (isHomePage || isLoginPage) {
     return <>{children}</>;
