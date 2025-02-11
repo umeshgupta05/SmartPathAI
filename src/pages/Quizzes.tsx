@@ -64,7 +64,7 @@ const Quiz = () => {
         return acc;
       }, {});
 
-      const response = await axios.post("http://localhost:5000/check_answers", {
+      const response = await axios.post("https://smartpathai-1.onrender.com/check_answers", {
         answers: userAnswers,
         correct_answers: correctAnswers,
       });
