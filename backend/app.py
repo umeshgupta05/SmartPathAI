@@ -135,59 +135,219 @@ def get_performance():
 @app.route("/recommend_courses", methods=["GET"])
 @jwt_required()
 def recommend_courses():
+    """Dynamically recommends courses using Gemini AI and updates MongoDB."""
     current_user = get_jwt_identity()
     user = mongo.db.user.find_one({"email": current_user})
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
     user_interests = user.get("interests", ["AI", "Machine Learning"])
 
-    prompt = f"Recommend 5 online courses based on these interests: {user_interests}"
-    response = gemini_model.generate_content(prompt)
-    
-    if not response.text:
-        return jsonify({"message": "Failed to generate courses"}), 500
+    # Ensure "courses" collection exists
+    if "course" not in mongo.db.list_collection_names():
+        mongo.db.create_collection("course")
 
-    courses = response.text.split("\n")
-    return jsonify(courses), 200
+    # Check if courses already exist in DB
+    existing_courses = list(mongo.db.course.find({}, {"_id": 0}))
+
+    if existing_courses:
+        return jsonify(existing_courses), 200  # Return existing courses if available
+
+    # Otherwise, generate new courses dynamically
+    prompt = f"Recommend 5 high-quality online courses based on these interests: {user_interests}. Format each course as: Title, Short Intro, Category, Skills, Duration, Site, Rating, URL."
+
+    try:
+        response = gemini_model.generate_content(prompt)
+        if not response or not response.text:
+            raise ValueError("Gemini AI failed to generate course recommendations.")
+
+        # Process AI response
+        courses = []
+        for line in response.text.strip().split("\n"):
+            parts = line.split(", ")
+            if len(parts) < 7:
+                continue  # Ignore invalid responses
+
+            course_data = {
+                "Title": parts[0] if len(parts) > 0 else "N/A",
+                "Short Intro": parts[1] if len(parts) > 1 else "No description available",
+                "Category": parts[2] if len(parts) > 2 else "General",
+                "Skills": parts[3] if len(parts) > 3 else "N/A",
+                "Duration": parts[4] if len(parts) > 4 else "N/A",
+                "Site": parts[5] if len(parts) > 5 else "Unknown",
+                "Rating": parts[6] if len(parts) > 6 else "N/A",
+                "URL": parts[7] if len(parts) > 7 else "#",
+            }
+
+            # Generate image for course
+            course_data["image"] = generate_course_image(course_data["Title"], course_data["Short Intro"])
+
+            # Store in MongoDB
+            mongo.db.courses.insert_one(course_data)
+            courses.append(course_data)
+
+        return jsonify(courses), 200
+
+    except Exception as e:
+        print(f"Error in course recommendation: {str(e)}")
+        return jsonify({"message": "Failed to generate courses"}), 500
+    
+@app.route("/learning_path", methods=["GET"])
+@jwt_required()
+def get_learning_path():
+    """Generates a dynamic learning path based on user interests and progress."""
+    current_user = get_jwt_identity()
+    user = mongo.db.user.find_one({"email": current_user})
+
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    user_interests = user.get("interests", ["AI", "Machine Learning"])
+    completed_courses = user.get("completed_courses", [])
+
+    # Ensure "learning_path" collection exists
+    if "learning_path" not in mongo.db.list_collection_names():
+        mongo.db.create_collection("learning_path")
+
+    # Check existing learning path in DB
+    existing_path = list(mongo.db.learning_path.find({"email": current_user}, {"_id": 0, "email": 0}))
+
+    if existing_path:
+        return jsonify(existing_path), 200  # Return stored learning path if available
+
+    # Otherwise, generate dynamically using AI
+    prompt = f"Generate a structured learning path (without any bold font) for a student interested in {user_interests}. The response format should be: Title, Description, Status (Not Started, In Progress, Completed), URL."
+
+    try:
+        response = gemini_model.generate_content(prompt)
+        if not response or not response.text:
+            raise ValueError("Gemini AI failed to generate learning path.")
+
+        learning_path = []
+        for line in response.text.strip().split("\n"):
+            parts = line.split(", ")
+            if len(parts) < 4:
+                continue  # Ignore malformed responses
+
+            course_data = {
+                "title": parts[0],
+                "description": parts[1],
+                "status": "Completed" if parts[0] in completed_courses else "Not Started",
+                "url": parts[3],
+            }
+
+            # Store in MongoDB
+            mongo.db.learning_path.insert_one({"email": current_user, **course_data})
+            learning_path.append(course_data)
+
+        return jsonify(learning_path), 200
+
+    except Exception as e:
+        print(f"Error generating learning path: {str(e)}")
+        return jsonify({"message": "Failed to generate learning path"}), 500
+
+    
+@app.route("/user_progress", methods=["GET"])
+@jwt_required()
+def get_user_progress():
+    """Fetches user course progress, ensuring the collection exists."""
+    current_user = get_jwt_identity()
+    user = mongo.db.user.find_one({"email": current_user}, {"_id": 0, "completed_courses": 1})
+
+    # If the user has no progress, return an empty list
+    if not user or "completed_courses" not in user:
+        return jsonify({"completed_courses": []}), 200
+
+    return jsonify({"completed_courses": user["completed_courses"]}), 200
+
+
+def generate_course_image(course_title, course_intro):
+    """Generate an AI-based image for the course using Gemini AI."""
+    existing_course = mongo.db.courses.find_one({"Title": course_title}, {"image": 1})
+
+    if existing_course and "image" in existing_course:
+        return existing_course["image"]  # Return stored image if available
+
+    # Generate image using Gemini AI
+    prompt = f"A high-quality professional digital course thumbnail for '{course_title}', with a theme focusing on {course_intro}."
+    try:
+        image = gemini_model.generate_content(prompt)
+
+        # Convert image to base64
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+        # Store the image in MongoDB
+        mongo.db.courses.update_one({"Title": course_title}, {"$set": {"image": img_str}}, upsert=True)
+
+        return img_str
+
+    except Exception as e:
+        print(f"Error generating course image: {str(e)}")
+        return None  # Return None if image generation fails
+    
+@app.route("/mark_completed", methods=["POST"])
+@jwt_required()
+def mark_course_completed():
+    """Marks a course as completed by the user."""
+    current_user = get_jwt_identity()
+    data = request.get_json()
+    course_title = data.get("courseTitle")
+
+    if not course_title:
+        return jsonify({"message": "Course title missing"}), 400
+
+    user = mongo.db.user.find_one({"email": current_user})
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    # Update completed courses
+    mongo.db.user.update_one(
+        {"email": current_user},
+        {"$addToSet": {"completed_courses": course_title}}  # Prevents duplicates
+    )
+
+    return jsonify({"message": f"Course '{course_title}' marked as completed"}), 200
+
+
 
 # ------------- **RECOMMEND CERTIFICATIONS BASED ON INTERESTS** -------------
+
+import json
 
 @app.route("/recommend_certifications", methods=["GET"])
 @jwt_required()
 def recommend_certifications():
-    """Dynamically recommends certifications based on user interests."""
+    current_user = get_jwt_identity()
+    user = mongo.db.user.find_one({"email": current_user})
+    
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    user_interests = user.get("interests", ["AI", "Machine Learning"])
+
+    prompt = f"Recommend 5 globally recognized online certifications based on these interests: {user_interests}."
+    
     try:
-        current_user = get_jwt_identity()
-        user = mongo.db.user.find_one({"email": current_user})
-
-        if not user:
-            return jsonify({"message": "User not found"}), 404
-
-        user_interests = user.get("interests", ["AI", "Machine Learning"])
-
-        # 🔹 Generate Certification Recommendations using Gemini AI
-        prompt = f"""
-        Recommend 5 globally recognized online certifications based on these interests: {user_interests}.
-        Provide details in JSON format:
-        [
-            {{"title": "Certification Name", "provider": "Platform Name", "duration": "X months", "url": "Certification Link"}}
-        ]
-        """
         response = gemini_model.generate_content(prompt)
-
-        try:
-            certifications = json.loads(response.text)
-        except json.JSONDecodeError:
-            return jsonify({"message": "Failed to generate certifications"}), 500
-
-        # 🔹 Store recommended certifications in DB (if not already present)
+        if not response or not response.text:
+            raise ValueError("Gemini AI failed to generate certifications.")
+        
+        certifications = response.text.strip().split("\n")
+        
+        # Store recommendations in DB
         for cert in certifications:
-            if not mongo.db.certifications.find_one({"title": cert["title"]}):
-                mongo.db.certifications.insert_one(cert)
-
+            if not mongo.db.certifications.find_one({"title": cert}):
+                mongo.db.certifications.insert_one({"title": cert, "recommended_by": current_user})
+        
         return jsonify(certifications), 200
-
+    
     except Exception as e:
-        print(f"Error in recommend_certifications: {str(e)}")
-        return jsonify({"message": "Internal Server Error", "error": str(e)}), 500
+        print(f"Error in certification recommendation: {str(e)}")
+        return jsonify({"message": "Failed to generate certifications"}), 500
+
 
 @app.route("/earned_certifications", methods=["GET"])
 @jwt_required()
@@ -377,6 +537,7 @@ def chatbot():
     except ApiException as e:
         print(f"IBM Watson API Error: {e}")
         return jsonify({"message": "Chatbot service is currently unavailable."}), 500
+
 
 
 if __name__ == "__main__":
