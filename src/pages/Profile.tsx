@@ -41,7 +41,7 @@ const Profile = () => {
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
-      await axios.put("http://localhost:5000/profile", profile, {
+      await axios.put("https://smartpathai-1.onrender.com/profile", profile, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success("Profile updated successfully!");
