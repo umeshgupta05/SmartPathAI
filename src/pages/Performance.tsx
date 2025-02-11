@@ -65,9 +65,9 @@ const Performance = () => {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'top' },
+      legend: { position: 'top' as const },
       tooltip: {
-        mode: 'index',
+        mode: 'nearest' as const,
         intersect: false,
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
         titleColor: '#111827',
