@@ -10,7 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import CourseRecommendations from "./pages/CourseRecommendations";
 import LearningPath from "./pages/LearningPath";
 import Performance from "./pages/Performance";
-import Quizzes from "./pages/Quizzes";
+import Quiz from "./pages/Quizzes";
 import Certifications from "./pages/Certifications";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
@@ -31,7 +31,7 @@ const App = () => (
             <Route path="/courses" element={<CourseRecommendations />} />
             <Route path="/learning-path" element={<LearningPath />} />
             <Route path="/performance" element={<Performance />} />
-            <Route path="/quizzes" element={<Quizzes />} />
+            <Route path="/quizzes" element={<Quiz />} />
             <Route path="/certifications" element={<Certifications />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<NotFound />} />
