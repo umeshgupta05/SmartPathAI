@@ -22,7 +22,7 @@ const Profile = () => {
           return;
         }
 
-        const response = await axios.get("http://localhost:5000/profile", {
+        const response = await axios.get("https://smartpathai-1.onrender.com/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
