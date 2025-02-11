@@ -22,8 +22,8 @@ const Certifications = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [certRes, earnedRes] = await Promise.all([
-        axios.get("http://localhost:5000/recommend_certifications", { headers }),
-        axios.get("http://localhost:5000/earned_certifications", { headers }),
+        axios.get("https://smartpathai-1.onrender.com/recommend_certifications", { headers }),
+        axios.get("https://smartpathai-1.onrender.com/earned_certifications", { headers }),
       ]);
 
       setCertifications(certRes.data);
