@@ -170,62 +170,49 @@ def get_performance():
 def recommend_courses():
     """Dynamically recommends courses using Gemini AI and updates MongoDB."""
     current_user = get_jwt_identity()
-    user = mongo.db.user.find_one({"email": current_user})
+    user = mongo.db.users.find_one({"email": current_user})
 
     if not user:
         return jsonify({"message": "User not found"}), 404
 
     user_interests = user.get("interests", ["AI", "Machine Learning"])
 
-    # Ensure "courses" collection exists
-    if "course" not in mongo.db.list_collection_names():
-        mongo.db.create_collection("course")
-
-    # Check if courses already exist in DB
-    existing_courses = list(mongo.db.course.find({}, {"_id": 0}))
-
+    # Check existing courses first
+    existing_courses = list(mongo.db.courses.find({}, {"_id": 0}))
     if existing_courses:
-        return jsonify(existing_courses), 200  # Return existing courses if available
+        return jsonify(existing_courses), 200
 
-    # Otherwise, generate new courses dynamically
-    prompt = f"Recommend 5 high-quality online courses based on these interests: {user_interests}. Format each course as: Title, Short Intro, Category, Skills, Duration, Site, Rating, URL."
+    # Generate new courses
+    prompt = f"Recommend 5 online courses for {user_interests}. Format: Title, Short Intro, Category, Skills, Duration, Site, Rating, URL."
 
     try:
         response = gemini_model.generate_content(prompt)
-        if not response or not response.text:
-            raise ValueError("Gemini AI failed to generate course recommendations.")
-
-        # Process AI response
         courses = []
         for line in response.text.strip().split("\n"):
-            parts = line.split(", ")
+            parts = [p.strip() for p in line.split(", ") if p.strip()]
             if len(parts) < 7:
-                continue  # Ignore invalid responses
+                continue
 
             course_data = {
-                "Title": parts[0] if len(parts) > 0 else "N/A",
-                "Short Intro": parts[1] if len(parts) > 1 else "No description available",
+                "Title": parts[0],
+                "Short Intro": parts[1] if len(parts) > 1 else "",
                 "Category": parts[2] if len(parts) > 2 else "General",
-                "Skills": parts[3] if len(parts) > 3 else "N/A",
-                "Duration": parts[4] if len(parts) > 4 else "N/A",
-                "Site": parts[5] if len(parts) > 5 else "Unknown",
-                "Rating": parts[6] if len(parts) > 6 else "N/A",
-                "URL": parts[7] if len(parts) > 7 else "#",
+                "Skills": parts[3] if len(parts) > 3 else "",
+                "Duration": parts[4] if len(parts) > 4 else "",
+                "Site": parts[5] if len(parts) > 5 else "",
+                "Rating": parts[6] if len(parts) > 6 else "",
+                "URL": parts[7] if len(parts) > 7 else "#"
             }
-
-            # Generate image for course
-            course_data["image"] = generate_course_image(course_data["Title"], course_data["Short Intro"])
-
-            # Store in MongoDB
-            mongo.db.courses.insert_one(course_data)
+            
+            mongo.db.courses.insert_one(course_data.copy())
             courses.append(course_data)
 
         return jsonify(courses), 200
 
     except Exception as e:
-        print(f"Error in course recommendation: {str(e)}")
+        print(f"Error: {str(e)}")
         return jsonify({"message": "Failed to generate courses"}), 500
-    
+
 @app.route("/learning_path", methods=["GET"])
 @jwt_required()
 def get_learning_path():
