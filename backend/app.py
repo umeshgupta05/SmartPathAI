@@ -36,6 +36,27 @@ jwt = JWTManager(app)
 app.config["MONGO_URI"] = "mongodb+srv://umeshgupta050104:767089amma@cluster0.qez0w.mongodb.net/userdb?retryWrites=true&w=majority&appName=Cluster0"
 mongo = PyMongo(app)
 
+# Ensure collections exist
+def ensure_collections():
+    for collection in ["user", "courses", "certifications", "learning_activities", "chat_history", "quiz_results"]:
+        if collection not in mongo.db.list_collection_names():
+            mongo.db.create_collection(collection)
+
+ensure_collections()
+
+GOOGLE_API_KEY = "AIzaSyCC8Me5ZHBVBEuI3OZkoSZUF9sykvETxa8"
+genai.configure(api_key=GOOGLE_API_KEY)
+gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+
+# Configure IBM Watson NLU
+ibm_authenticator = IAMAuthenticator("zDOlhxO7-cEeZSrbF3OqMEdlmToSEdBscU4_fpmCJCuu")
+nlu = NaturalLanguageUnderstandingV1(version="2023-06-15", authenticator=ibm_authenticator)
+nlu.set_service_url("https://api.au-syd.natural-language-understanding.watson.cloud.ibm.com/instances/54be911a-88cf-4441-9695-a0422de1c839")
+
+@app.route("/")
+def home():
+    return "✅ Server is running!", 200
+
 @app.route("/auth", methods=["POST", "OPTIONS"])
 def auth():
     if request.method == "OPTIONS":
