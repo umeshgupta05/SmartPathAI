@@ -67,41 +67,47 @@ const Login = () => {
   };
 
   // ✅ Handle form submission
-  const onSubmit = async (values: any) => {
-    try {
-      console.log("Submitting form:", values);
+  const onSubmit = async (values) => {
+  try {
+    console.log("Submitting form:", values);
 
-      const payload = {
-        name: isSignUp ? values.name : undefined,
-        email: values.email,
-        password: values.password,
-        confirmPassword: isSignUp ? values.confirmPassword : undefined,
-        interests: isSignUp ? selectedInterests : undefined,
-        signup: isSignUp,
-      };
+    const payload = {
+      email: values.email,
+      password: values.password,
+      signup: isSignUp,
+      name: isSignUp ? values.name : undefined,
+      confirmPassword: isSignUp ? values.confirmPassword : undefined,
+      interests: isSignUp ? selectedInterests : undefined,
+    };
 
-      console.log("Payload sent to API:", payload);
+    console.log("Payload sent to API:", payload);
 
-      const response = await axios.post(`${API_BASE_URL}/auth`, payload, {
+    const response = await axios.post(
+      "https://smartpathai-1.onrender.com/auth",
+      payload,
+      {
         headers: { "Content-Type": "application/json" },
-      });
-
-      console.log("API Response:", response.data);
-
-      if (!response.data.token) {
-        throw new Error("Token missing from API response");
+        withCredentials: true,  // ✅ Fix: Send credentials
       }
+    );
 
-      const { token, user } = response.data;
-      localStorage.setItem("token", token);
-      toast.success(`Welcome ${user.name || user.email}! Redirecting to dashboard...`);
+    console.log("API Response:", response.data);
 
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Auth error:", error);
-      toast.error(error.response?.data?.message || "❌ Authentication failed!");
+    if (!response.data.token) {
+      throw new Error("Token missing from API response");
     }
-  };
+
+    const { token, user } = response.data;
+    localStorage.setItem("token", token);
+    toast.success(`Welcome ${user.name || user.email}! Redirecting to dashboard...`);
+
+    navigate("/dashboard");
+  } catch (error) {
+    console.error("Auth error:", error);
+    toast.error(error.response?.data?.message || "❌ Authentication failed!");
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent/5 p-6">
