@@ -1,28 +1,25 @@
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_pymongo import PyMongo
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-import google.generativeai as genai
-from ibm_watson import NaturalLanguageUnderstandingV1
-from ibm_watson.natural_language_understanding_v1 import Features, KeywordsOptions
-from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
-from datetime import timedelta, datetime
-import random
-import os
-import json
+from flask_jwt_extended import JWTManager, create_access_token
+from datetime import timedelta
 
 app = Flask(__name__)
 
+# Updated CORS configuration
 CORS(app, supports_credentials=True, resources={r"/*": {
-    "origins": ["https://smart-path-ai.vercel.app", "http://localhost:5000"],  # ✅ Allow frontend & local testing
-    "methods": ["GET", "POST", "OPTIONS"],
-    "allow_headers": ["Authorization", "Content-Type"]
+    "origins": ["https://smart-path-ai.vercel.app", "http://localhost:3000", "http://localhost:5173"],  # Added common development ports
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"],
+    "expose_headers": ["Content-Type", "Authorization"],
+    "supports_credentials": True
 }})
-
 
 # JWT Configuration
 app.config["JWT_SECRET_KEY"] = "your_secret_key"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
+app.config["JWT_COOKIE_CSRF_PROTECT"] = False  # Disable CSRF tokens for simplicity
 
 jwt = JWTManager(app)
 
@@ -30,72 +27,72 @@ jwt = JWTManager(app)
 app.config["MONGO_URI"] = "mongodb+srv://umeshgupta050104:767089amma@cluster0.qez0w.mongodb.net/userdb?retryWrites=true&w=majority&appName=Cluster0"
 mongo = PyMongo(app)
 
-# Ensure collections exist
-def ensure_collections():
-    for collection in ["user", "courses", "certifications", "learning_activities", "chat_history", "quiz_results"]:
-        if collection not in mongo.db.list_collection_names():
-            mongo.db.create_collection(collection)
-
-ensure_collections()
-
-# Configure Google Gemini AI
-GOOGLE_API_KEY = "AIzaSyCC8Me5ZHBVBEuI3OZkoSZUF9sykvETxa8"
-genai.configure(api_key=GOOGLE_API_KEY)
-gemini_model = genai.GenerativeModel("gemini-1.5-flash")
-
-# Configure IBM Watson NLU
-ibm_authenticator = IAMAuthenticator("zDOlhxO7-cEeZSrbF3OqMEdlmToSEdBscU4_fpmCJCuu")
-nlu = NaturalLanguageUnderstandingV1(version="2023-06-15", authenticator=ibm_authenticator)
-nlu.set_service_url("https://api.au-syd.natural-language-understanding.watson.cloud.ibm.com/instances/54be911a-88cf-4441-9695-a0422de1c839")
-
-@app.route("/")
-def home():
-    return "✅ Server is running!", 200
-
-# ------------- AUTHENTICATION SYSTEM -------------
-
-@app.route("/auth", methods=["POST"])
+@app.route("/auth", methods=["POST", "OPTIONS"])
 def auth():
-    data = request.json
-    email = data.get("email")
-    password = data.get("password")
-    signup = data.get("signup", False)
+    if request.method == "OPTIONS":
+        return jsonify({"message": "OK"}), 200
+        
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "No data provided"}), 400
+            
+        email = data.get("email")
+        password = data.get("password")
+        signup = data.get("signup", False)
 
-    if signup:
-        # **Signup Logic**
-        if mongo.db.user.find_one({"email": email}):
-            return jsonify({"message": "User already exists"}), 400
+        if not email or not password:
+            return jsonify({"message": "Email and password are required"}), 400
 
-        new_user = {
-            "name": data.get("name"),
-            "email": email,
-            "password": password,  # No hashing (as requested)
-            "interests": data.get("interests", []),
-            "preferences": {"pace": "moderate", "content_format": "video"},
-            "performance": {"learning_hours": 0, "average_score": 0, "skills_mastered": 0},
-            "completed_courses": []
-        }
-        mongo.db.user.insert_one(new_user)
-        message = "User created successfully!"
-        user = new_user  # Use the newly created user for the response
-    else:
-        # **Login Logic**
-        user = mongo.db.user.find_one({"email": email})
-        if not user or user["password"] != password:
-            return jsonify({"message": "Invalid credentials"}), 401
-        message = "Login successful!"
+        if signup:
+            # Signup Logic
+            existing_user = mongo.db.user.find_one({"email": email})
+            if existing_user:
+                return jsonify({"message": "User already exists"}), 409
 
-    # Generate JWT Token
-    access_token = create_access_token(identity=email)
-    return jsonify({
-        "token": access_token,
-        "user": {
-            "name": user.get("name", ""),
-            "email": email,
-            "interests": user.get("interests", []),
-        },
-        "message": message
-    }), 200
+            new_user = {
+                "name": data.get("name", ""),
+                "email": email,
+                "password": password,
+                "interests": data.get("interests", []),
+                "preferences": {"pace": "moderate", "content_format": "video"},
+                "performance": {"learning_hours": 0, "average_score": 0, "skills_mastered": 0},
+                "completed_courses": []
+            }
+            
+            mongo.db.user.insert_one(new_user)
+            access_token = create_access_token(identity=email)
+            
+            return jsonify({
+                "message": "User created successfully",
+                "token": access_token,
+                "user": {
+                    "name": new_user["name"],
+                    "email": email,
+                    "interests": new_user["interests"]
+                }
+            }), 201
+        else:
+            # Login Logic
+            user = mongo.db.user.find_one({"email": email})
+            if not user or user["password"] != password:
+                return jsonify({"message": "Invalid credentials"}), 401
+
+            access_token = create_access_token(identity=email)
+            
+            return jsonify({
+                "message": "Login successful",
+                "token": access_token,
+                "user": {
+                    "name": user.get("name", ""),
+                    "email": email,
+                    "interests": user.get("interests", [])
+                }
+            }), 200
+            
+    except Exception as e:
+        print(f"Auth error: {str(e)}")
+        return jsonify({"message": f"Server error: {str(e)}"}), 500
     
 # ------------- PROFILE MANAGEMENT -------------
 
