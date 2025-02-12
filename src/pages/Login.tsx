@@ -24,11 +24,21 @@ const API_BASE_URL = "https://smartpathai-1.onrender.com";
 
 // ✅ Fix schema validation issues
 const authSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").optional(),
+  name: isSignUp ? z.string().min(2, "Name must be at least 2 characters") : z.string().optional(),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string().optional(),
+  confirmPassword: isSignUp 
+    ? z.string().min(6, "Password must be at least 6 characters")
+    : z.string().optional(),
   interests: z.array(z.string()).optional(),
+}).refine(data => {
+  if (isSignUp && data.password !== data.confirmPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });
 
 const Login = () => {
@@ -66,45 +76,42 @@ const Login = () => {
     );
   };
 
-  // ✅ Handle form submission
+  const api = axios.create({
+  baseURL: 'https://smartpathai-1.onrender.com',
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
   const onSubmit = async (values) => {
   try {
-    console.log("Submitting form:", values);
-
     const payload = {
       email: values.email,
       password: values.password,
       signup: isSignUp,
-      name: isSignUp ? values.name : undefined,
-      confirmPassword: isSignUp ? values.confirmPassword : undefined,
-      interests: isSignUp ? selectedInterests : undefined,
+      ...(isSignUp && {
+        name: values.name,
+        confirmPassword: values.confirmPassword,
+        interests: selectedInterests,
+      }),
     };
 
-    console.log("Payload sent to API:", payload);
-
-    const response = await axios.post(
-      "https://smartpathai-1.onrender.com/auth",
-      payload,
-      {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,  // ✅ Fix: Send credentials
-      }
-    );
-
-    console.log("API Response:", response.data);
-
-    if (!response.data.token) {
-      throw new Error("Token missing from API response");
-    }
-
+    const response = await api.post('/auth', payload);
     const { token, user } = response.data;
-    localStorage.setItem("token", token);
-    toast.success(`Welcome ${user.name || user.email}! Redirecting to dashboard...`);
 
-    navigate("/dashboard");
+    // Store token
+    localStorage.setItem('token', token);
+    
+    // Update axios default headers for future requests
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+    toast.success(response.data.message);
+    navigate('/dashboard');
   } catch (error) {
-    console.error("Auth error:", error);
-    toast.error(error.response?.data?.message || "❌ Authentication failed!");
+    console.error('Auth error:', error);
+    const errorMessage = error.response?.data?.message || 'Authentication failed';
+    toast.error(errorMessage);
   }
 };
 
