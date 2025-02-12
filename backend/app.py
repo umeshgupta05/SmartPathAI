@@ -1,6 +1,15 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_pymongo import PyMongo
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import google.generativeai as genai
+from ibm_watson import NaturalLanguageUnderstandingV1
+from ibm_watson.natural_language_understanding_v1 import Features, KeywordsOptions
+from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+from datetime import timedelta, datetime
+import random
+import os
+import json
 from flask_jwt_extended import JWTManager, create_access_token
 from datetime import timedelta
 
