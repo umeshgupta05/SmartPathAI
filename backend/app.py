@@ -14,7 +14,7 @@ import json
 app = Flask(__name__)
 
 CORS(app, supports_credentials=True, resources={r"/*": {
-    "origins": "https://smart-path-ai.vercel.app",
+    "origins": ["https://smart-path-ai.vercel.app", "http://localhost:5000"],  # ✅ Allow frontend & local testing
     "methods": ["GET", "POST", "OPTIONS"],
     "allow_headers": ["Authorization", "Content-Type"]
 }})
