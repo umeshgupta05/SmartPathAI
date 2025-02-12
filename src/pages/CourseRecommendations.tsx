@@ -12,113 +12,90 @@ const CourseRecommendations = () => {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get("https://smartpathai-1.onrender.com/recommend_courses", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const [coursesRes, progressRes] = await Promise.all([
+          axios.get("https://smartpathai-1.onrender.com/recommend_courses", {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          axios.get("https://smartpathai-1.onrender.com/user_progress", {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
 
-        console.log("Courses received:", response.data);
-        setCourses(response.data);
-
-        // Fetch user progress (completed courses)
-        const progressResponse = await axios.get("https://smartpathai-1.onrender.com/user_progress", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        setCompletedCourses(new Set(progressResponse.data.completed_courses || []));
+        setCourses(coursesRes.data);
+        setCompletedCourses(new Set(progressRes.data?.completed_courses || []));
       } catch (error) {
-        console.error("Error fetching courses:", error);
+        toast.error("Failed to load courses");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCourses();
+    fetchData();
   }, [token]);
 
-  const markAsComplete = async (courseTitle) => {
+  const handleMarkComplete = async (title) => {
     try {
       await axios.post(
         "https://smartpathai-1.onrender.com/mark_completed",
-        { courseTitle },
+        { courseTitle: title },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setCompletedCourses((prev) => new Set([...prev, courseTitle]));
-      toast.success(`✅ "${courseTitle}" marked as completed!`);
+      setCompletedCourses(prev => new Set([...prev, title]));
+      toast.success(`Marked "${title}" as completed!`);
     } catch (error) {
-      console.error("Error marking course as complete:", error);
-      toast.error("❌ Failed to mark as completed. Try again.");
+      toast.error("Failed to update status");
     }
   };
 
-  if (loading) return <div className="text-center py-10 text-xl font-medium">Loading courses...</div>;
+  if (loading) return <div className="p-8 text-center">Loading courses...</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">🎓 Personalized Course Recommendations</h1>
-        </div>
+    <div className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold mb-8">Recommended Courses</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {courses.map((course, index) => (
+          <Card key={index} className="p-6 shadow-sm">
+            <h3 className="font-semibold text-lg mb-2">{course.Title}</h3>
+            <p className="text-sm text-gray-600 mb-4">{course["Short Intro"]}</p>
+            
+            <div className="flex flex-wrap gap-2 mb-4">
+              {course.Skills.split(",").map((skill, i) => (
+                <span key={i} className="text-xs px-2 py-1 bg-gray-100 rounded">
+                  {skill.trim()}
+                </span>
+              ))}
+            </div>
 
-        {/* Course Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {courses.length > 0 ? (
-            courses.map((course, index) => (
-              <Card key={index} className="p-6 shadow-lg hover:shadow-xl transition-all bg-white rounded-xl">
-                {/* Course Image */}
-                {course.image ? (
-                  <img src={course.image} alt={course.Title} className="w-full h-40 object-cover rounded-md mb-4" />
-                ) : (
-                  <img src="/fallback_course_image.png" alt="Fallback" className="w-full h-40 object-cover rounded-md mb-4" />
-                )}
+            <div className="space-y-1 text-sm mb-4">
+              <p>🏷️ {course.Category}</p>
+              <p>⏱️ {course.Duration}</p>
+              <p>⭐ {course.Rating}</p>
+              <p>🌐 {course.Site}</p>
+            </div>
 
-                {/* Course Title */}
-                <h3 className="font-semibold text-lg mb-2 text-gray-800">{course.Title || "No Title Available"}</h3>
-
-                {/* Short Intro */}
-                <p className="text-sm text-gray-500 mb-4">{course["Short Intro"] || "No description available"}</p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {(course.Skills || "No Skills").split(",").map((tag, idx) => (
-                    <span key={idx} className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-                      {tag.trim()}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Course Info */}
-                <p className="text-sm text-gray-500 mb-2">📌 {course.Category} | {course["Course Type"] || "General"}</p>
-                <p className="text-sm text-gray-500 mb-2">🕒 {course.Duration || "N/A"}</p>
-                <p className="text-sm text-gray-500 mb-2">⭐ {course.Rating || "N/A"}</p>
-
-                {/* Buttons */}
-                <div className="flex justify-between gap-2 mt-4">
-                  {/* Go to Course Button */}
-                  <Button className="flex-1 flex items-center justify-center gap-2" onClick={() => window.open(course.URL, "_blank")}>
-                    <PlayCircle className="h-4 w-4" />
-                    Go to Course
-                  </Button>
-
-                  {/* Mark as Complete Button */}
-                  <Button
-                    className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600"
-                    disabled={completedCourses.has(course.Title)}
-                    onClick={() => markAsComplete(course.Title)}
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    {completedCourses.has(course.Title) ? "Completed" : "Mark Complete"}
-                  </Button>
-                </div>
-              </Card>
-            ))
-          ) : (
-            <p className="text-center col-span-3 text-gray-500">No courses found.</p>
-          )}
-        </div>
+            <div className="flex gap-2 mt-4">
+              <Button 
+                className="flex-1" 
+                onClick={() => window.open(course.URL, "_blank")}
+              >
+                <PlayCircle className="mr-2 h-4 w-4" />
+                View Course
+              </Button>
+              
+              <Button
+                variant={completedCourses.has(course.Title) ? "secondary" : "default"}
+                onClick={() => handleMarkComplete(course.Title)}
+                disabled={completedCourses.has(course.Title)}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                {completedCourses.has(course.Title) ? "Completed" : "Mark Done"}
+              </Button>
+            </div>
+          </Card>
+        ))}
       </div>
     </div>
   );
