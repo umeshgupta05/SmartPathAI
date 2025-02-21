@@ -16,13 +16,33 @@ from datetime import timedelta
 app = Flask(__name__)
 
 # Updated CORS configuration
-CORS(app, supports_credentials=True, resources={r"/*": {
-    "origins": ["https://smart-path-ai.vercel.app", "http://localhost:3000", "http://localhost:5173"],  # Added common development ports
-    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["Content-Type", "Authorization"],
-    "expose_headers": ["Content-Type", "Authorization"],
-    "supports_credentials": True
-}})
+from flask_cors import CORS
+
+# Updated CORS configuration
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://smart-path-ai.vercel.app",
+            "http://localhost:3000",
+            "http://localhost:5173"
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 3600
+    }
+})
+
+# Add CORS headers to all responses
+@app.after_request
+def after_request(response):
+    origin = request.headers.get('Origin')
+    if origin in ["https://smart-path-ai.vercel.app", "http://localhost:3000", "http://localhost:5173"]:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 # JWT Configuration
 app.config["JWT_SECRET_KEY"] = "your_secret_key"
@@ -123,6 +143,35 @@ def auth():
     except Exception as e:
         print(f"Auth error: {str(e)}")
         return jsonify({"message": f"Server error: {str(e)}"}), 500
+
+@app.route("/dashboard", methods=["GET", "OPTIONS"])
+@jwt_required()
+def get_dashboard():
+    try:
+        # Handle preflight requests
+        if request.method == "OPTIONS":
+            return jsonify({"message": "OK"}), 200
+
+        current_user = get_jwt_identity()
+        user = mongo.db.user.find_one({"email": current_user})
+        
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        # Get user's dashboard data
+        dashboard_data = {
+            "currentCourse": user.get("current_course", "No active course"),
+            "completedCourses": len(user.get("completed_courses", [])),
+            "certifications": len(user.get("earned_certifications", [])),
+            "overallProgress": calculate_overall_progress(user),  # You'll need to implement this
+            "recommendedCourses": []  # You can populate this based on user interests
+        }
+
+        return jsonify(dashboard_data), 200
+
+    except Exception as e:
+        print(f"Dashboard error: {str(e)}")
+        return jsonify({"message": "Internal server error"}), 500
     
 # ------------- PROFILE MANAGEMENT -------------
 
