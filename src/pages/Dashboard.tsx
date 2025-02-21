@@ -21,22 +21,35 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-    try {
-     const token = localStorage.getItem("token");
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate('/login');
+      return;
+    }
 
-     const response = await axios.get("https://smartpathai-1.onrender.com/dashboard", {
-       headers: {
-         "Authorization": `Bearer ${token}`,
-         "Content-Type": "application/json"
-       },
-       withCredentials: true,  // ✅ Ensure cookies/tokens are sent
-     });
+    const response = await axios.get("https://smartpathai-1.onrender.com/dashboard", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      withCredentials: true
+    });
 
-     console.log("Dashboard Data:", response.data);
-   } catch (error) {
-     console.error("Error fetching dashboard data:", error);
-   }
-  };
+    if (response.data) {
+      setDashboardData(response.data);
+    }
+  } catch (error) {
+    if (error.response?.status === 401) {
+      // Handle unauthorized access
+      localStorage.removeItem("token");
+      navigate('/login');
+    } else {
+      console.error("Error fetching dashboard data:", error);
+      // Optionally show an error message to the user
+    }
+  }
+};
     fetchDashboardData();
   }, [navigate]);
 
