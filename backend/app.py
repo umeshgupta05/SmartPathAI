@@ -144,6 +144,47 @@ def auth():
         print(f"Auth error: {str(e)}")
         return jsonify({"message": f"Server error: {str(e)}"}), 500
 
+def calculate_overall_progress(user):
+    """
+    Calculate overall progress based on completed courses and certifications
+    """
+    try:
+        # Get total numbers
+        completed_courses = len(user.get("completed_courses", []))
+        earned_certifications = len(user.get("earned_certifications", []))
+        total_learning_hours = user.get("performance", {}).get("learning_hours", 0)
+        quiz_scores = user.get("quiz_scores", [])
+        
+        # Calculate average quiz score
+        avg_quiz_score = sum(quiz_scores) / len(quiz_scores) if quiz_scores else 0
+        
+        # Calculate weights for different factors
+        course_weight = 0.4  # 40% weight to completed courses
+        cert_weight = 0.3    # 30% weight to certifications
+        quiz_weight = 0.3    # 30% weight to quiz performance
+        
+        # Get total courses and certifications from the database
+        total_courses = max(mongo.db.courses.count_documents({}), 1)  # Avoid division by zero
+        total_certs = max(mongo.db.certifications.count_documents({}), 1)  # Avoid division by zero
+        
+        # Calculate individual progress components
+        course_progress = (completed_courses / total_courses) * 100
+        cert_progress = (earned_certifications / total_certs) * 100
+        quiz_progress = avg_quiz_score  # Already in percentage
+        
+        # Calculate weighted average
+        overall_progress = (
+            (course_progress * course_weight) +
+            (cert_progress * cert_weight) +
+            (quiz_progress * quiz_weight)
+        )
+        
+        return round(min(overall_progress, 100), 1)  # Return rounded percentage, max 100%
+        
+    except Exception as e:
+        print(f"Error calculating progress: {str(e)}")
+        return 0  # Return 0 if calculation fails
+
 @app.route("/dashboard", methods=["GET", "OPTIONS"])
 @jwt_required()
 def get_dashboard():
