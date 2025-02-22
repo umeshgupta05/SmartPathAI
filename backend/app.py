@@ -317,59 +317,121 @@ def recommend_courses():
         return jsonify({"error": str(e)}), 500
 
 
+from bson import ObjectId
+from urllib.parse import urlparse
+import re
+
 @app.route("/learning_path", methods=["GET"])
 @jwt_required()
 def get_learning_path():
-    """Generates a dynamic learning path based on user interests and progress."""
-    current_user = get_jwt_identity()
-    user = mongo.db.user.find_one({"email": current_user})
-
-    if not user:
-        return jsonify({"message": "User not found"}), 404
-
-    user_interests = user.get("interests", ["AI", "Machine Learning"])
-    completed_courses = user.get("completed_courses", [])
-
-    # Ensure "learning_path" collection exists
-    if "learning_path" not in mongo.db.list_collection_names():
-        mongo.db.create_collection("learning_path")
-
-    # Check existing learning path in DB
-    existing_path = list(mongo.db.learning_path.find({"email": current_user}, {"_id": 0, "email": 0}))
-
-    if existing_path:
-        return jsonify(existing_path), 200  # Return stored learning path if available
-
-    # Otherwise, generate dynamically using AI
-    prompt = f"Generate a structured learning path (without any bold font) for a student interested in {user_interests}. The response format should be: Title, Description, Status (Not Started, In Progress, Completed), URL."
-
     try:
-        response = gemini_model.generate_content(prompt)
-        if not response or not response.text:
-            raise ValueError("Gemini AI failed to generate learning path.")
+        current_user = get_jwt_identity()
+        
+        # Input validation
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", current_user):
+            return jsonify({"message": "Invalid email format"}), 400
+            
+        # Start MongoDB session
+        with mongo.client.start_session() as session:
+            with session.start_transaction():
+                user = mongo.db.user.find_one({"email": current_user})
+                if not user:
+                    return jsonify({"message": "User not found"}), 404
+                    
+                user_interests = user.get("interests", ["AI", "Machine Learning"])
+                if not isinstance(user_interests, list) or len(user_interests) > 5:
+                    return jsonify({"message": "Invalid interests format"}), 400
+                    
+                completed_courses = user.get("completed_courses", [])
+                
+                # Check existing path
+                existing_path = list(mongo.db.learning_path.find(
+                    {"email": current_user},
+                    {"_id": 0, "email": 0}
+                ).sort("created_at", -1))
+                
+                if existing_path:
+                    return jsonify(existing_path), 200
+                    
+                # Generate new path
+                prompt = generate_learning_path_prompt(user_interests)
+                response = generate_ai_learning_path(prompt)
+                
+                if not response:
+                    return jsonify({"message": "Failed to generate learning path"}), 500
+                    
+                learning_path = process_learning_path(
+                    response, 
+                    current_user, 
+                    completed_courses,
+                    session
+                )
+                
+                if not learning_path:
+                    return jsonify({"message": "Failed to process learning path"}), 500
+                    
+                # Cleanup old paths
+                mongo.db.learning_path.delete_many({
+                    "email": current_user,
+                    "created_at": {"$lt": datetime.utcnow() - timedelta(days=7)}
+                })
+                
+                return jsonify(learning_path), 200
+                
+    except Exception as e:
+        print(f"Error in get_learning_path: {str(e)}")
+        return jsonify({"message": "Internal server error"}), 500
 
-        learning_path = []
-        for line in response.text.strip().split("\n"):
-            parts = line.split(", ")
-            if len(parts) < 4:
-                continue  # Ignore malformed responses
+def generate_learning_path_prompt(interests):
+    return (
+        f"Generate a structured learning path for a student interested in "
+        f"{', '.join(interests)}. Include 5-7 courses with clear progression. "
+        f"Format each course as: Title, Description, Status (Not Started), URL"
+    )
 
+def validate_course_data(course_data):
+    required_fields = ["title", "description", "status", "url"]
+    if not all(field in course_data for field in required_fields):
+        return False
+        
+    if not urlparse(course_data["url"]).scheme:
+        return False
+        
+    return True
+
+def process_learning_path(response, email, completed_courses, session):
+    learning_path = []
+    current_time = datetime.utcnow()
+    
+    for line in response.text.strip().split("\n"):
+        try:
+            parts = [part.strip() for part in line.split(",", 3)]
+            if len(parts) != 4:
+                continue
+                
             course_data = {
                 "title": parts[0],
                 "description": parts[1],
                 "status": "Completed" if parts[0] in completed_courses else "Not Started",
                 "url": parts[3],
+                "created_at": current_time
             }
-
+            
+            if not validate_course_data(course_data):
+                continue
+                
             # Store in MongoDB
-            mongo.db.learning_path.insert_one({"email": current_user, **course_data})
+            mongo.db.learning_path.insert_one(
+                {"email": email, **course_data},
+                session=session
+            )
             learning_path.append(course_data)
-
-        return jsonify(learning_path), 200
-
-    except Exception as e:
-        print(f"Error generating learning path: {str(e)}")
-        return jsonify({"message": "Failed to generate learning path"}), 500
+            
+        except Exception as e:
+            print(f"Error processing course: {str(e)}")
+            continue
+            
+    return learning_path
 
     
 @app.route("/user_progress", methods=["GET"])
@@ -434,6 +496,46 @@ def mark_course_completed():
     )
 
     return jsonify({"message": f"Course '{course_title}' marked as completed"}), 200
+
+@app.route("/optimize_path", methods=["POST"])
+@jwt_required()
+def optimize_path():
+    current_user = get_jwt_identity()
+    current_path = request.json.get("current_path", [])
+    
+    try:
+        # Generate optimization prompt
+        prompt = f"Optimize this learning path considering prerequisites and learning efficiency: {current_path}"
+        response = gemini_model.generate_content(prompt)
+        
+        if not response or not response.text:
+            raise ValueError("Failed to optimize learning path")
+            
+        # Parse and update the learning path
+        optimized_path = []
+        for line in response.text.strip().split("\n"):
+            parts = line.split(", ")
+            if len(parts) < 4:
+                continue
+            
+            course_data = {
+                "title": parts[0],
+                "description": parts[1],
+                "status": parts[2],
+                "url": parts[3]
+            }
+            optimized_path.append(course_data)
+            
+        # Update in MongoDB
+        mongo.db.learning_path.delete_many({"email": current_user})
+        for course in optimized_path:
+            mongo.db.learning_path.insert_one({"email": current_user, **course})
+            
+        return jsonify(optimized_path), 200
+        
+    except Exception as e:
+        print(f"Error optimizing learning path: {str(e)}")
+        return jsonify({"message": "Failed to optimize learning path"}), 500
 
 
 
