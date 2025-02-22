@@ -469,37 +469,46 @@ def optimize_path():
 
 import json
 
-@app.route("/recommend_certifications", methods=["GET"])
-@jwt_required()
-def recommend_certifications():
-    current_user = get_jwt_identity()
-    user = mongo.db.user.find_one({"email": current_user})
-    
-    if not user:
-        return jsonify({"message": "User not found"}), 404
-
-    user_interests = user.get("interests", ["AI", "Machine Learning"])
-
-    prompt = f"Recommend 5 globally recognized online certifications based on these interests: {user_interests}."
-    
+@app.route('/recommendations', methods=['POST'])
+def get_recommendations():
     try:
+        user_data = request.json
+        user_progress = user_data.get('progress', '')
+
+        # Generate recommendations with details
+        prompt = f"""
+        The user has completed the following topics: {user_progress}.
+        Recommend 5 global certifications including:
+        1. Certification Name
+        2. Official Link
+        3. Short Description (max 30 words)
+        4. Difficulty Level (Beginner/Intermediate/Advanced)
+        """
+
         response = gemini_model.generate_content(prompt)
-        if not response or not response.text:
-            raise ValueError("Gemini AI failed to generate certifications.")
-        
-        certifications = response.text.strip().split("\n")
-        
-        # Store recommendations in DB
-        for cert in certifications:
-            if not mongo.db.certifications.find_one({"title": cert}):
-                mongo.db.certifications.insert_one({"title": cert, "recommended_by": current_user})
-        
-        return jsonify(certifications), 200
+
+        # Parse Gemini response
+        recommendations = []
+        for cert in response.text.strip().split("\n\n"):
+            lines = cert.split("\n")
+            if len(lines) >= 4:
+                recommendations.append({
+                    "name": lines[0].replace("Certification Name:", "").strip(),
+                    "link": lines[1].replace("Official Link:", "").strip(),
+                    "description": lines[2].replace("Short Description:", "").strip(),
+                    "difficulty": lines[3].replace("Difficulty Level:", "").strip(),
+                })
+
+        return jsonify({
+            "status": "success",
+            "recommendations": recommendations
+        })
     
     except Exception as e:
-        print(f"Error in certification recommendation: {str(e)}")
-        return jsonify({"message": "Failed to generate certifications"}), 500
-
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 @app.route("/earned_certifications", methods=["GET"])
 @jwt_required()
