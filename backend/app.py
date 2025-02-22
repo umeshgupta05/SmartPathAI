@@ -249,8 +249,20 @@ def get_performance():
     user = mongo.db.user.find_one({"email": current_user})
     if not user:
         return jsonify({"message": "User not found"}), 404
-
+    
+    # Ensure performance data has the correct structure
     performance_data = user.get("performance", {})
+    default_data = {
+        "learning_hours": 0,
+        "average_score": 0,
+        "skills_mastered": 0,
+        "recent_activity": [],
+        "skill_progress": []
+    }
+    
+    # Merge with default data to ensure all fields exist
+    performance_data = {**default_data, **performance_data}
+    
     return jsonify(performance_data), 200
 
 # ------------- COURSE RECOMMENDATIONS -------------
