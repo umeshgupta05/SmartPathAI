@@ -15,8 +15,10 @@ from datetime import timedelta
 
 app = Flask(__name__)
 
+# Updated CORS configuration
+from flask_cors import CORS
 
-# Main CORS configuration
+# Updated CORS configuration
 CORS(app, resources={
     r"/*": {
         "origins": [
@@ -31,20 +33,15 @@ CORS(app, resources={
     }
 })
 
-# Modified after_request handler
+# Add CORS headers to all responses
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
     if origin in ["https://smart-path-ai.vercel.app", "http://localhost:3000", "http://localhost:5173"]:
-        # Only add headers if they don't exist
-        if 'Access-Control-Allow-Origin' not in response.headers:
-            response.headers['Access-Control-Allow-Origin'] = origin
-        if 'Access-Control-Allow-Headers' not in response.headers:
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
-        if 'Access-Control-Allow-Methods' not in response.headers:
-            response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
-        if 'Access-Control-Allow-Credentials' not in response.headers:
-            response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
     
 # JWT Configuration
