@@ -26,16 +26,39 @@ ChartJS.register(
   Filler
 );
 
+// Default empty state with proper data structure
+const defaultPerformance = {
+  learning_hours: 0,
+  average_score: 0,
+  skills_mastered: 0,
+  recent_activity: [],
+  skill_progress: []
+};
+
 const Performance = () => {
-  const [performance, setPerformance] = useState({
-    learning_hours: 0,
-    average_score: 0,
-    skills_mastered: 0,
-    recent_activity: [],
-    skill_progress: []
-  });
+  const [performance, setPerformance] = useState(defaultPerformance);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const validatePerformanceData = (data) => {
+    // Ensure all required fields exist with correct types
+    const validated = {
+      learning_hours: Number(data?.learning_hours ?? 0),
+      average_score: Number(data?.average_score ?? 0),
+      skills_mastered: Number(data?.skills_mastered ?? 0),
+      recent_activity: Array.isArray(data?.recent_activity) ? data.recent_activity : [],
+      skill_progress: Array.isArray(data?.skill_progress) ? data.skill_progress : []
+    };
+    
+    // Ensure each activity has required properties
+    validated.recent_activity = validated.recent_activity.map(activity => ({
+      date: activity?.date ?? '',
+      learning_hours: Number(activity?.learning_hours ?? 0),
+      score: Number(activity?.score ?? 0)
+    }));
+
+    return validated;
+  };
 
   const fetchPerformance = useCallback(async () => {
     try {
@@ -45,11 +68,13 @@ const Performance = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setPerformance(response.data);
+      const validatedData = validatePerformanceData(response.data);
+      setPerformance(validatedData);
       setError(null);
     } catch (error) {
       console.error("Error fetching performance data:", error);
       setError(error.response?.data?.error || "Failed to fetch performance data");
+      setPerformance(defaultPerformance); // Reset to default state on error
     } finally {
       setLoading(false);
     }
@@ -84,11 +109,15 @@ const Performance = () => {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+    return <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+    </div>;
   }
 
   if (error) {
-    return <div className="min-h-screen flex items-center justify-center"><Card className="p-6 bg-red-50"><p className="text-red-600">{error}</p></Card></div>;
+    return <div className="min-h-screen flex items-center justify-center">
+      <Card className="p-6 bg-red-50"><p className="text-red-600">{error}</p></Card>
+    </div>;
   }
 
   const chartData = {
@@ -151,7 +180,15 @@ const Performance = () => {
 
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Learning Progress</h2>
-          <div className="h-[400px]"><Line data={chartData} options={chartOptions} /></div>
+          <div className="h-[400px]">
+            {performance.recent_activity.length > 0 ? (
+              <Line data={chartData} options={chartOptions} />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                No activity data available
+              </div>
+            )}
+          </div>
         </Card>
       </div>
     </div>
