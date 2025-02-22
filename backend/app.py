@@ -543,27 +543,30 @@ import json
 @jwt_required()
 def generate_quiz():
     try:
-        # 🔹 Get the current authenticated user
         current_user = get_jwt_identity()
         user = mongo.db.user.find_one({"email": current_user})
 
         if not user:
             return jsonify({"message": "User not found"}), 404
 
-        # 🔹 Pick a topic based on user interests
+        # Pick a topic based on user interests
         topic = random.choice(user.get("interests", ["General Knowledge"]))
 
-        # 🔹 Generate quiz using Gemini AI
+        # Generate quiz using Gemini AI
         prompt = f"""Create a multiple-choice quiz on {topic} with 5 questions.
-        Each question should have 4 answer choices.
-        Return JSON format:
+        Follow this exact format for each question:
+        - Clear, concise question
+        - 4 distinct answer choices
+        - One correct answer
+        
+        Return the quiz in this exact format:
         {{
             "topic": "{topic}",
             "questions": [
                 {{
-                    "question": "What is AI?",
-                    "options": ["Artificial Intelligence", "Algorithm Integration", "Automation Input", "Advanced Insight"],
-                    "correct_answer": "Artificial Intelligence"
+                    "question": "Question text here?",
+                    "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+                    "correct_answer": "Option X"
                 }}
             ]
         }}"""
@@ -571,23 +574,65 @@ def generate_quiz():
         response = gemini_model.generate_content(prompt)
         
         if not response.text:
-            return jsonify({"message": "Failed to generate quiz"}), 500
+            return jsonify({
+                "topic": topic,
+                "questions": []
+            }), 200
 
-        # 🔹 Ensure Gemini's response is valid JSON
+        # Parse the response and ensure it's valid JSON
         try:
-            quiz_data = json.loads(response.text.replace("```json", "").replace("```", "").strip())
-        except json.JSONDecodeError:
-            return jsonify({"message": "Quiz format error"}), 500
+            # Remove any markdown code block syntax if present
+            clean_text = response.text.replace("```json", "").replace("```", "").strip()
+            quiz_data = json.loads(clean_text)
+            
+            # Validate quiz structure
+            if not isinstance(quiz_data, dict) or "questions" not in quiz_data:
+                raise ValueError("Invalid quiz structure")
+                
+            # Ensure each question has required fields
+            for question in quiz_data["questions"]:
+                if not all(key in question for key in ["question", "options", "correct_answer"]):
+                    raise ValueError("Invalid question format")
+                if not isinstance(question["options"], list) or len(question["options"]) != 4:
+                    raise ValueError("Each question must have exactly 4 options")
+                if question["correct_answer"] not in question["options"]:
+                    raise ValueError("Correct answer must be one of the options")
 
-        # 🔹 Store quiz in MongoDB for history tracking
-        quiz_data["email"] = current_user
-        mongo.db.quiz_results.insert_one(quiz_data)
+            # Store quiz in MongoDB without ObjectId issues
+            quiz_record = {
+                "email": current_user,
+                "topic": quiz_data["topic"],
+                "timestamp": datetime.utcnow().isoformat(),  # Convert to string
+                "questions": quiz_data["questions"]
+            }
+            mongo.db.quiz_results.insert_one(quiz_record)
 
-        return jsonify(quiz_data), 200
+            # Return quiz data without MongoDB-specific fields
+            return jsonify({
+                "topic": quiz_data["topic"],
+                "questions": quiz_data["questions"]
+            }), 200
+
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {str(e)}")
+            return jsonify({
+                "topic": topic,
+                "questions": []
+            }), 200
+            
+        except ValueError as e:
+            print(f"Validation error: {str(e)}")
+            return jsonify({
+                "topic": topic,
+                "questions": []
+            }), 200
 
     except Exception as e:
         print(f"Error in generate_quiz: {str(e)}")
-        return jsonify({"message": "Internal Server Error", "error": str(e)}), 500
+        return jsonify({
+            "topic": "General Knowledge",
+            "questions": []
+        }), 200
 
 @app.route("/check_answers", methods=["POST"])
 @jwt_required()
