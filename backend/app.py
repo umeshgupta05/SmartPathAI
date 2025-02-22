@@ -259,49 +259,81 @@ def get_performance():
 @jwt_required()
 def recommend_courses():
     """Dynamically recommends courses using Gemini AI and updates MongoDB."""
-    current_user = get_jwt_identity()
-    user = mongo.db.users.find_one({"email": current_user})
-
-    if not user:
-        return jsonify({"message": "User not found"}), 404
-
-    user_interests = user.get("interests", ["AI", "Machine Learning"])
-
-    # Check existing courses first
-    existing_courses = list(mongo.db.courses.find({}, {"_id": 0}))
-    if existing_courses:
-        return jsonify(existing_courses), 200
-
-    # Generate new courses
-    prompt = f"Recommend 5 online courses for {user_interests}. Format: Title, Short Intro, Category, Skills, Duration, Site, Rating, URL."
-
     try:
+        current_user = get_jwt_identity()
+        user = mongo.db.user.find_one({"email": current_user})
+
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        user_interests = user.get("interests", ["AI", "Machine Learning"])
+
+        # Check existing courses first
+        existing_courses = list(mongo.db.courses.find({}, {"_id": 0}))
+        if existing_courses:
+            # Ensure all required fields exist in the correct format
+            for course in existing_courses:
+                course["Skills"] = course.get("Skills", "").strip()  # Ensure Skills is a string
+                course["Short Intro"] = course.get("Short Intro", "")  # Ensure Short Intro exists
+            return jsonify(existing_courses), 200
+
+        # If no courses exist, generate new ones
+        prompt = f"""Generate 5 professional online courses related to {', '.join(user_interests)}. 
+        For each course include:
+        1. Title: Clear, professional course name
+        2. Short Intro: Brief 1-sentence description
+        3. Category: Main subject area
+        4. Skills: 3-4 specific skills, comma-separated
+        5. Duration: Estimated completion time (e.g., "4 weeks", "2 months")
+        6. Site: Platform name (e.g., "Coursera", "Udemy")
+        7. Rating: Course rating out of 5 (e.g., "4.5")
+        8. URL: Course link (use "#" if none)
+
+        Format each course exactly as:
+        Title | Short Intro | Category | Skills | Duration | Site | Rating | URL"""
+
         response = gemini_model.generate_content(prompt)
+        if not response or not response.text:
+            return jsonify([]), 200  # Return empty array instead of error
+
         courses = []
         for line in response.text.strip().split("\n"):
-            parts = [p.strip() for p in line.split(", ") if p.strip()]
+            if not line.strip():
+                continue
+                
+            parts = [p.strip() for p in line.split("|")]
             if len(parts) < 7:
                 continue
 
             course_data = {
                 "Title": parts[0],
-                "Short Intro": parts[1] if len(parts) > 1 else "",
-                "Category": parts[2] if len(parts) > 2 else "General",
-                "Skills": parts[3] if len(parts) > 3 else "",
-                "Duration": parts[4] if len(parts) > 4 else "",
-                "Site": parts[5] if len(parts) > 5 else "",
-                "Rating": parts[6] if len(parts) > 6 else "",
+                "Short Intro": parts[1],
+                "Category": parts[2],
+                "Skills": parts[3],
+                "Duration": parts[4],
+                "Site": parts[5],
+                "Rating": parts[6],
                 "URL": parts[7] if len(parts) > 7 else "#"
             }
             
-            mongo.db.courses.insert_one(course_data.copy())
+            # Validate required fields used by frontend
+            if not all([
+                course_data["Title"],
+                course_data["Short Intro"],
+                course_data["Skills"]
+            ]):
+                continue
+                
+            # Store in MongoDB
+            mongo.db.courses.insert_one(course_data)
             courses.append(course_data)
 
         return jsonify(courses), 200
 
     except Exception as e:
-        print(f"Error: {str(e)}")
-        return jsonify({"message": "Failed to generate courses"}), 500
+        print(f"Error in recommend_courses: {str(e)}")
+        # Return empty array instead of error to match frontend expectations
+        return jsonify([]), 200
 
 @app.route("/learning_path", methods=["GET"])
 @jwt_required()
