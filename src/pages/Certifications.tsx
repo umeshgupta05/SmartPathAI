@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Award, CheckCircle, Search } from "lucide-react";
+import { Award, CheckCircle, Search, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 const Certifications = () => {
@@ -26,20 +27,20 @@ const Certifications = () => {
         axios.get("https://smartpathai-1.onrender.com/earned_certifications", { headers }),
       ]);
 
-      // Process and validate certification data
-      const processedCerts = certRes.data.map(cert => {
-        // If cert is a string, convert it to an object
-        if (typeof cert === 'string') {
-          const [title, provider = 'Various', duration = '3-6 months'] = cert.split(' - ');
+      const processedCerts = certRes.data.map((cert) => {
+        if (typeof cert === "string") {
+          const [title, provider = "Various", duration = "3-6 months"] = cert.split(" - ");
           return {
             title: title.trim(),
             provider,
             duration,
-            url: '#'  // Default URL
+            url: "#",
+            level: "Intermediate", // Default level
+            prerequisites: "None", // Default prerequisites
           };
         }
         return cert;
-      }).filter(cert => cert && cert.title); // Filter out any invalid entries
+      }).filter(cert => cert && cert.title);
 
       setCertifications(processedCerts);
       setEarnedCertifications(new Set(earnedRes.data));
@@ -74,27 +75,29 @@ const Certifications = () => {
 
   const filteredCertifications = certifications.filter((cert) => {
     const searchTerm = searchQuery.toLowerCase();
-    const certTitle = cert?.title?.toLowerCase() || '';
+    const certTitle = cert?.title?.toLowerCase() || "";
     return certTitle.includes(searchTerm);
   });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8 animate-fade-up">📜 Certifications</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8 animate-fade-up">
+          📜 Certifications
+        </h1>
 
         {/* Search Bar */}
         <div className="relative mb-8 animate-fade-up">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <Input 
-            placeholder="Search certifications..." 
-            className="pl-10" 
-            value={searchQuery} 
+          <Input
+            placeholder="Search certifications..."
+            className="pl-10"
+            value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        {/* Error State */}
+        {/* No Certifications Found */}
         {!loading && certifications.length === 0 && (
           <div className="text-center text-gray-500 mt-8">
             No certifications found. Please try again later.
@@ -109,35 +112,48 @@ const Certifications = () => {
             ))
           ) : (
             filteredCertifications.map((cert, index) => (
-              <Card 
-                key={index} 
-                className="p-6 hover:shadow-lg transition-all animate-fade-up"
+              <Card
+                key={index}
+                className={`p-6 hover:shadow-lg transition-all animate-fade-up ${
+                  earnedCertifications.has(cert.title) ? "border-green-400" : ""
+                }`}
               >
                 <div className="flex items-center gap-4 mb-4">
                   <div className="p-3 bg-primary/10 rounded-lg">
                     <Award className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">{cert.title}</h3>
+                    <h3 className="font-semibold flex items-center gap-2">
+                      {cert.title}
+                      {earnedCertifications.has(cert.title) && (
+                        <Badge className="bg-green-100 text-green-700">
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Completed
+                        </Badge>
+                      )}
+                    </h3>
                     <p className="text-sm text-gray-500">
                       {cert.provider} | ⏳ {cert.duration}
                     </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      🔥 Level: {cert.level}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      📋 Prerequisites: {cert.prerequisites}
+                    </p>
                   </div>
                 </div>
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   onClick={() => window.open(cert.url, "_blank")}
                 >
                   Start Certification
                 </Button>
-                <Button 
-                  className="w-full mt-2 flex gap-2" 
+                <Button
+                  className="w-full mt-2 flex gap-2"
                   disabled={earnedCertifications.has(cert.title)}
                   onClick={() => markAsCompleted(cert.title)}
                 >
-                  {earnedCertifications.has(cert.title) && (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  )}
                   {earnedCertifications.has(cert.title) ? "Completed" : "Mark Complete"}
                 </Button>
               </Card>
