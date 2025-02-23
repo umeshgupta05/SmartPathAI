@@ -300,8 +300,8 @@ def recommend_courses():
 
         # Prompt for Gemini AI
         prompt = f"""Generate 5 professional online courses related to {', '.join(user_interests)}.
-        For each course, include:
-        Title | Short Intro | Category | Skills | Duration | Site | Rating | URL"""
+        For each course, give as following pattern:
+        Title | Short Intro | Category | Skills | Duration | Site | Rating | URL without any extra content, explanation and text formatting"""
 
         response = gemini_model.generate_content(prompt)
         if not response or not response.text:
