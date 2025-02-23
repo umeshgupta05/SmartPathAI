@@ -504,17 +504,15 @@ import json
 def recommend_certifications():
     """Dynamically recommends global certifications using Gemini AI."""
     try:
-        # Get the authenticated user
         current_user = get_jwt_identity()
         user = mongo.db.user.find_one({"email": current_user})
 
         if not user:
             return jsonify({"message": "User not found"}), 404
 
-        # Extract user progress or fallback to general topics
         user_interests = user.get("interests", ["AI", "Machine Learning"])
 
-        # Check if recommendations already exist
+        # Check for cached recommendations
         existing_certs = list(mongo.db.certifications.find({}, {"_id": 0}))
         if existing_certs:
             return jsonify(existing_certs), 200
@@ -533,8 +531,8 @@ def recommend_certifications():
 
         # Parse the response
         certifications = []
-        for cert in response.text.strip().split("\n\n"):
-            lines = cert.strip().split("\n")
+        for cert_block in response.text.strip().split("\n\n"):
+            lines = cert_block.strip().split("\n")
             if len(lines) >= 4:
                 cert_data = {
                     "name": lines[0].replace("Certification Name:", "").strip(),
@@ -542,16 +540,14 @@ def recommend_certifications():
                     "description": lines[2].replace("Short Description:", "").strip(),
                     "difficulty": lines[3].replace("Difficulty Level:", "").strip(),
                 }
-
-                # Check for duplicates
-                if not mongo.db.certifications.find_one({"name": cert_data["name"]}):
-                    mongo.db.certifications.insert_one(cert_data)
-                    certifications.append(cert_data)
+                mongo.db.certifications.insert_one(cert_data)
+                certifications.append(cert_data)
 
         return jsonify(certifications), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("Error generating certifications:", e)
+        return jsonify({"message": "Failed to generate certifications."}), 500
 
 
 @app.route("/earned_certifications", methods=["GET"])
