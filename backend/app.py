@@ -497,8 +497,6 @@ def optimize_path():
 
 # ------------- **RECOMMEND CERTIFICATIONS BASED ON INTERESTS** -------------
 
-import json
-
 @app.route("/recommend_certifications", methods=["GET"])
 @jwt_required()
 def recommend_certifications():
@@ -517,31 +515,30 @@ def recommend_certifications():
         if existing_certs:
             return jsonify(existing_certs), 200
 
-        # Generate new recommendations using Gemini AI
+        # Updated prompt for Gemini AI (strict JSON format)
         prompt = f"""
-        The user has completed the following topics: {', '.join(user_interests)}.
-        Recommend 5 reputed certifications with:
-        1. Certification Name
-        2. Official Link
-        3. Short Description (max 30 words)
-        4. Difficulty Level (Beginner/Intermediate/Advanced)
+        The user has completed topics: {', '.join(user_interests)}.
+        Recommend 5 reputed certifications strictly in this format:
+        [
+          {{
+            "name": "Certification Name",
+            "link": "https://example.com",
+            "description": "Short description (max 30 words)",
+            "difficulty": "Beginner/Intermediate/Advanced"
+          }},
+          ...
+        ]
+        Provide the response as a valid JSON array only, without any extra text or explanations.
         """
 
         response = gemini_model.generate_content(prompt)
 
-        # Parse the response
-        certifications = []
-        for cert_block in response.text.strip().split("\n\n"):
-            lines = cert_block.strip().split("\n")
-            if len(lines) >= 4:
-                cert_data = {
-                    "name": lines[0].replace("Certification Name:", "").strip(),
-                    "link": lines[1].replace("Official Link:", "").strip(),
-                    "description": lines[2].replace("Short Description:", "").strip(),
-                    "difficulty": lines[3].replace("Difficulty Level:", "").strip(),
-                }
-                mongo.db.certifications.insert_one(cert_data)
-                certifications.append(cert_data)
+        # Directly parse JSON response
+        certifications = json.loads(response.text.strip())
+
+        # Cache the recommendations in MongoDB
+        for cert in certifications:
+            mongo.db.certifications.insert_one(cert)
 
         return jsonify(certifications), 200
 
