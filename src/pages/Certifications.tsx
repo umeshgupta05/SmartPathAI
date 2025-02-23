@@ -19,29 +19,31 @@ const Certifications = () => {
   }, []);
 
   const fetchCertifications = async () => {
-    try {
-      const requestConfig = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      };
+  try {
+    const requestConfig = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      withCredentials: true,
+    };
 
-      const [certRes, earnedRes] = await Promise.all([
-        axios.get("https://smartpathai-1.onrender.com/recommend_certifications", requestConfig),
-        axios.get("https://smartpathai-1.onrender.com/earned_certifications", requestConfig),
-      ]);
+    const [certRes, earnedRes] = await Promise.all([
+      axios.get("https://smartpathai-1.onrender.com/recommend_certifications", requestConfig),
+      axios.get("https://smartpathai-1.onrender.com/earned_certifications", requestConfig),
+    ]);
 
-      setCertifications(certRes.data);
-      setEarnedCertifications(new Set(earnedRes.data));
-    } catch (error) {
-      console.error("Error fetching certifications:", error);
-      toast.error("Failed to fetch certifications. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Directly set the certifications from the received JSON response
+    setCertifications(certRes.data);
+    setEarnedCertifications(new Set(earnedRes.data));
+  } catch (error) {
+    console.error("Error fetching certifications:", error);
+    toast.error("Failed to fetch certifications. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const markAsCompleted = async (title) => {
     if (!title) {
