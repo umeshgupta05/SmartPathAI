@@ -21,10 +21,17 @@ const Certifications = () => {
 
   const fetchCertifications = async () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
+      const requestConfig = {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true
+      };
+
       const [certRes, earnedRes] = await Promise.all([
-        axios.get("https://smartpathai-1.onrender.com/recommend_certifications", { headers }),
-        axios.get("https://smartpathai-1.onrender.com/earned_certifications", { headers }),
+        axios.get("https://smartpathai-1.onrender.com/recommend_certifications", requestConfig),
+        axios.get("https://smartpathai-1.onrender.com/earned_certifications", requestConfig),
       ]);
 
       const processedCerts = certRes.data.map((cert) => {
@@ -35,8 +42,8 @@ const Certifications = () => {
             provider,
             duration,
             url: "#",
-            level: "Intermediate", // Default level
-            prerequisites: "None", // Default prerequisites
+            level: "Intermediate",
+            prerequisites: "None",
           };
         }
         return cert;
@@ -46,7 +53,11 @@ const Certifications = () => {
       setEarnedCertifications(new Set(earnedRes.data));
     } catch (error) {
       console.error("Error fetching certifications:", error);
-      toast.error("Failed to fetch certifications");
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please login again.");
+      } else {
+        toast.error("Failed to fetch certifications. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -62,14 +73,24 @@ const Certifications = () => {
       await axios.post(
         "https://smartpathai-1.onrender.com/mark_certification_completed",
         { title },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          withCredentials: true
+        }
       );
 
       setEarnedCertifications((prev) => new Set([...prev, title]));
       toast.success(`✅ "${title}" marked as completed!`);
     } catch (error) {
       console.error("Error marking certification:", error);
-      toast.error("❌ Failed to mark certification as completed.");
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please login again.");
+      } else {
+        toast.error("Failed to mark certification as completed. Please try again.");
+      }
     }
   };
 
@@ -86,7 +107,6 @@ const Certifications = () => {
           📜 Certifications
         </h1>
 
-        {/* Search Bar */}
         <div className="relative mb-8 animate-fade-up">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
@@ -97,14 +117,12 @@ const Certifications = () => {
           />
         </div>
 
-        {/* No Certifications Found */}
         {!loading && certifications.length === 0 && (
           <div className="text-center text-gray-500 mt-8">
             No certifications found. Please try again later.
           </div>
         )}
 
-        {/* Certifications Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {loading ? (
             [...Array(6)].map((_, index) => (
