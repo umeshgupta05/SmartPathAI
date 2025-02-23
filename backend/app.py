@@ -298,11 +298,6 @@ def recommend_courses():
 
         user_interests = user.get("interests", ["AI", "Machine Learning"])
 
-        # Check existing courses
-        existing_courses = list(mongo.db.courses.find({}, {"_id": 0}))
-        if existing_courses:
-            return jsonify(existing_courses), 200
-
         # Prompt for Gemini AI
         prompt = f"""Generate 5 professional online courses related to {', '.join(user_interests)}.
         For each course, include:
