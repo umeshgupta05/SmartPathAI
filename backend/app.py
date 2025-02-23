@@ -500,7 +500,7 @@ def optimize_path():
 @app.route("/recommend_certifications", methods=["GET"])
 @jwt_required()
 def recommend_certifications():
-    """Dynamically recommends global certifications using Gemini AI."""
+    """Dynamically recommends global certifications using Gemini AI without caching."""
     try:
         current_user = get_jwt_identity()
         user = mongo.db.user.find_one({"email": current_user})
@@ -510,15 +510,10 @@ def recommend_certifications():
 
         user_interests = user.get("interests", ["AI", "Machine Learning"])
 
-        # Check for cached recommendations
-        existing_certs = list(mongo.db.certifications.find({}, {"_id": 0}))
-        if existing_certs:
-            return jsonify(existing_certs), 200
-
-        # Updated prompt for Gemini AI (strict JSON format)
+        # Updated prompt for Gemini AI (strict JSON format, no metadata)
         prompt = f"""
         The user has completed topics: {', '.join(user_interests)}.
-        Recommend 5 reputed certifications strictly in this format:
+        Recommend 5 reputed certifications in this format only:
         [
           {{
             "name": "Certification Name",
@@ -528,17 +523,13 @@ def recommend_certifications():
           }},
           ...
         ]
-        Provide the response as a valid JSON array only, without any extra text or explanations.
+        Return only a valid JSON array with no additional explanations or metadata.
         """
 
         response = gemini_model.generate_content(prompt)
 
-        # Directly parse JSON response
+        # Parse JSON response directly
         certifications = json.loads(response.text.strip())
-
-        # Cache the recommendations in MongoDB
-        for cert in certifications:
-            mongo.db.certifications.insert_one(cert)
 
         return jsonify(certifications), 200
 
