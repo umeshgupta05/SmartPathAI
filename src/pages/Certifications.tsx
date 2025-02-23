@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Award, CheckCircle, Search, Star, Loader2 } from "lucide-react";
+import { Award, CheckCircle, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -33,32 +33,11 @@ const Certifications = () => {
         axios.get("https://smartpathai-1.onrender.com/earned_certifications", requestConfig),
       ]);
 
-      const processedCerts = certRes.data
-        .map((cert) => {
-          if (typeof cert === "string") {
-            const [title, provider = "Various", duration = "3-6 months"] = cert.split(" - ");
-            return {
-              title: title.trim(),
-              provider,
-              duration,
-              url: "#",
-              level: "Intermediate",
-              prerequisites: "None",
-            };
-          }
-          return cert;
-        })
-        .filter((cert) => cert && cert.title);
-
-      setCertifications(processedCerts);
+      setCertifications(certRes.data);
       setEarnedCertifications(new Set(earnedRes.data));
     } catch (error) {
       console.error("Error fetching certifications:", error);
-      if (error.response?.status === 401) {
-        toast.error("Session expired. Please login again.");
-      } else {
-        toast.error("Failed to fetch certifications. Please try again.");
-      }
+      toast.error("Failed to fetch certifications. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -87,29 +66,21 @@ const Certifications = () => {
       toast.success(`✅ "${title}" marked as completed!`);
     } catch (error) {
       console.error("Error marking certification:", error);
-      if (error.response?.status === 401) {
-        toast.error("Session expired. Please login again.");
-      } else {
-        toast.error("Failed to mark certification as completed. Please try again.");
-      }
+      toast.error("Failed to mark certification as completed.");
     }
   };
 
-  const filteredCertifications = certifications.filter((cert) => {
-    const searchTerm = searchQuery.toLowerCase();
-    const certTitle = cert?.title?.toLowerCase() || "";
-    return certTitle.includes(searchTerm);
-  });
+  const filteredCertifications = certifications.filter((cert) =>
+    cert.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8 animate-fade-up">
-          📜 Certifications
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">📜 Certifications</h1>
 
         {/* Search Input */}
-        <div className="relative mb-8 animate-fade-up">
+        <div className="relative mb-8">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
             aria-label="Search certifications"
@@ -120,22 +91,8 @@ const Certifications = () => {
           />
         </div>
 
-        {/* Handle No Certifications Found */}
-        {!loading && certifications.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
-            No certifications found. Please try again later.
-          </div>
-        )}
-
-        {/* Handle No Search Results */}
-        {filteredCertifications.length === 0 && !loading && (
-          <div className="text-center text-gray-500 mt-8">
-            No certifications match your search.
-          </div>
-        )}
-
         {/* Certifications Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loading ? (
             <div className="flex justify-center items-center col-span-full">
               <Loader2 className="h-12 w-12 text-gray-400 animate-spin" />
@@ -144,8 +101,8 @@ const Certifications = () => {
             filteredCertifications.map((cert, index) => (
               <Card
                 key={index}
-                className={`p-6 hover:shadow-lg transition-all animate-fade-up ${
-                  earnedCertifications.has(cert.title) ? "border-green-400" : ""
+                className={`p-6 hover:shadow-lg transition-all ${
+                  earnedCertifications.has(cert.name) ? "border-green-400" : ""
                 }`}
               >
                 <div className="flex items-center gap-4 mb-4">
@@ -154,8 +111,8 @@ const Certifications = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold flex items-center gap-2">
-                      {cert.title}
-                      {earnedCertifications.has(cert.title) && (
+                      {cert.name}
+                      {earnedCertifications.has(cert.name) && (
                         <Badge className="bg-green-100 text-green-700">
                           <CheckCircle className="h-4 w-4 mr-1" />
                           Completed
@@ -163,39 +120,32 @@ const Certifications = () => {
                       )}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {cert.provider} | ⏳ {cert.duration}
+                      🔥 Level: {cert.difficulty}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      🔥 Level: {cert.level}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      📋 Prerequisites: {cert.prerequisites}
-                    </p>
+                    <p className="text-xs text-gray-400 mt-1">{cert.description}</p>
                   </div>
                 </div>
 
                 {/* Start Certification Button */}
                 <Button
                   className="w-full"
-                  onClick={() => cert.url && cert.url !== "#" && window.open(cert.url, "_blank")}
-                  disabled={!cert.url || cert.url === "#"}
-                  aria-label={`Start ${cert.title} certification`}
+                  onClick={() => window.open(cert.link, "_blank")}
+                  disabled={!cert.link}
+                  aria-label={`Start ${cert.name} certification`}
                 >
                   Start Certification
                 </Button>
 
                 {/* Mark as Complete Button */}
                 <Button
-                  className={`w-full mt-2 flex gap-2 ${
-                    earnedCertifications.has(cert.title)
-                      ? "bg-green-500 cursor-not-allowed"
-                      : ""
+                  className={`w-full mt-2 ${
+                    earnedCertifications.has(cert.name) ? "bg-green-500 cursor-not-allowed" : ""
                   }`}
-                  disabled={earnedCertifications.has(cert.title)}
-                  onClick={() => markAsCompleted(cert.title)}
-                  aria-label={`Mark ${cert.title} as completed`}
+                  disabled={earnedCertifications.has(cert.name)}
+                  onClick={() => markAsCompleted(cert.name)}
+                  aria-label={`Mark ${cert.name} as completed`}
                 >
-                  {earnedCertifications.has(cert.title) ? "Completed" : "Mark Complete"}
+                  {earnedCertifications.has(cert.name) ? "Completed" : "Mark Complete"}
                 </Button>
               </Card>
             ))
