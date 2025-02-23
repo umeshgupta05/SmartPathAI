@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Award, CheckCircle, Search, Star } from "lucide-react";
+import { Award, CheckCircle, Search, Star, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -22,11 +21,11 @@ const Certifications = () => {
   const fetchCertifications = async () => {
     try {
       const requestConfig = {
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        withCredentials: true
+        withCredentials: true,
       };
 
       const [certRes, earnedRes] = await Promise.all([
@@ -34,20 +33,22 @@ const Certifications = () => {
         axios.get("https://smartpathai-1.onrender.com/earned_certifications", requestConfig),
       ]);
 
-      const processedCerts = certRes.data.map((cert) => {
-        if (typeof cert === "string") {
-          const [title, provider = "Various", duration = "3-6 months"] = cert.split(" - ");
-          return {
-            title: title.trim(),
-            provider,
-            duration,
-            url: "#",
-            level: "Intermediate",
-            prerequisites: "None",
-          };
-        }
-        return cert;
-      }).filter(cert => cert && cert.title);
+      const processedCerts = certRes.data
+        .map((cert) => {
+          if (typeof cert === "string") {
+            const [title, provider = "Various", duration = "3-6 months"] = cert.split(" - ");
+            return {
+              title: title.trim(),
+              provider,
+              duration,
+              url: "#",
+              level: "Intermediate",
+              prerequisites: "None",
+            };
+          }
+          return cert;
+        })
+        .filter((cert) => cert && cert.title);
 
       setCertifications(processedCerts);
       setEarnedCertifications(new Set(earnedRes.data));
@@ -74,11 +75,11 @@ const Certifications = () => {
         "https://smartpathai-1.onrender.com/mark_certification_completed",
         { title },
         {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
-          withCredentials: true
+          withCredentials: true,
         }
       );
 
@@ -107,9 +108,11 @@ const Certifications = () => {
           📜 Certifications
         </h1>
 
+        {/* Search Input */}
         <div className="relative mb-8 animate-fade-up">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <Input
+            aria-label="Search certifications"
             placeholder="Search certifications..."
             className="pl-10"
             value={searchQuery}
@@ -117,17 +120,26 @@ const Certifications = () => {
           />
         </div>
 
+        {/* Handle No Certifications Found */}
         {!loading && certifications.length === 0 && (
           <div className="text-center text-gray-500 mt-8">
             No certifications found. Please try again later.
           </div>
         )}
 
+        {/* Handle No Search Results */}
+        {filteredCertifications.length === 0 && !loading && (
+          <div className="text-center text-gray-500 mt-8">
+            No certifications match your search.
+          </div>
+        )}
+
+        {/* Certifications Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {loading ? (
-            [...Array(6)].map((_, index) => (
-              <Skeleton key={index} className="h-40 rounded-lg" />
-            ))
+            <div className="flex justify-center items-center col-span-full">
+              <Loader2 className="h-12 w-12 text-gray-400 animate-spin" />
+            </div>
           ) : (
             filteredCertifications.map((cert, index) => (
               <Card
@@ -161,16 +173,27 @@ const Certifications = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Start Certification Button */}
                 <Button
                   className="w-full"
-                  onClick={() => window.open(cert.url, "_blank")}
+                  onClick={() => cert.url && cert.url !== "#" && window.open(cert.url, "_blank")}
+                  disabled={!cert.url || cert.url === "#"}
+                  aria-label={`Start ${cert.title} certification`}
                 >
                   Start Certification
                 </Button>
+
+                {/* Mark as Complete Button */}
                 <Button
-                  className="w-full mt-2 flex gap-2"
+                  className={`w-full mt-2 flex gap-2 ${
+                    earnedCertifications.has(cert.title)
+                      ? "bg-green-500 cursor-not-allowed"
+                      : ""
+                  }`}
                   disabled={earnedCertifications.has(cert.title)}
                   onClick={() => markAsCompleted(cert.title)}
+                  aria-label={`Mark ${cert.title} as completed`}
                 >
                   {earnedCertifications.has(cert.title) ? "Completed" : "Mark Complete"}
                 </Button>
