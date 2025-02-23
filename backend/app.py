@@ -499,7 +499,7 @@ def optimize_path():
 
 import json
 
-@app.route('/recommendations', methods=['POST'])
+@app.route('/recommend_certifications', methods=['POST'])
 def get_recommendations():
     try:
         user_data = request.json
