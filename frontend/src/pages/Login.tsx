@@ -21,7 +21,7 @@ import { motion } from "framer-motion";
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: "https://smartpathai-1.onrender.com",
+  baseURL: "http://localhost:5000",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",

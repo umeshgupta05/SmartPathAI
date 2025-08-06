@@ -40,17 +40,14 @@ const Quiz = () => {
         return;
       }
 
-      const response = await fetch(
-        "https://smartpathai-1.onrender.com/generate_quiz",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }
-      );
+      const response = await fetch("http://localhost:5000/generate_quiz", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -110,21 +107,18 @@ const Quiz = () => {
         return acc;
       }, {});
 
-      const response = await fetch(
-        "https://smartpathai-1.onrender.com/check_answers",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            answers: userAnswers,
-            correct_answers: correctAnswers,
-          }),
-        }
-      );
+      const response = await fetch("http://localhost:5000/check_answers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          answers: userAnswers,
+          correct_answers: correctAnswers,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to submit answers");

@@ -91,12 +91,9 @@ const Performance = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const response = await axios.get(
-        "https://smartpathai-1.onrender.com/performance",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await axios.get("http://localhost:5000/performance", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       const validatedData = validatePerformanceData(response.data);
       setPerformance(validatedData);

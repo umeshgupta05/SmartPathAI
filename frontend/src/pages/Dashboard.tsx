@@ -54,16 +54,13 @@ const Dashboard = () => {
           return;
         }
 
-        const response = await axios.get(
-          "https://smartpathai-1.onrender.com/dashboard",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            withCredentials: true,
-          }
-        );
+        const response = await axios.get("http://localhost:5000/dashboard", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          withCredentials: true,
+        });
 
         if (response.data) {
           setDashboardData(response.data);
@@ -94,7 +91,7 @@ const Dashboard = () => {
 
     try {
       const response = await axios.post(
-        "https://smartpathai-1.onrender.com/chatbot",
+        "http://localhost:5000/chatbot",
         { message: input },
         {
           headers: { Authorization: `Bearer ${token}` },

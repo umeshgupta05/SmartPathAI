@@ -18,19 +18,20 @@ const CourseRecommendations = () => {
     setError(null);
     try {
       const [coursesRes, progressRes] = await Promise.all([
-        axios.get("https://smartpathai-1.onrender.com/recommend_courses", {
-          headers: { Authorization: `Bearer ${token}` }
+        axios.get("http://localhost:5000/recommend_courses", {
+          headers: { Authorization: `Bearer ${token}` },
         }),
-        axios.get("https://smartpathai-1.onrender.com/user_progress", {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        axios.get("http://localhost:5000/user_progress", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
       setCourses(coursesRes.data);
       setCompletedCourses(new Set(progressRes.data?.completed_courses || []));
     } catch (error) {
-      const errorMessage = error.response?.status === 404 
-        ? "No courses found. Please try refreshing."
-        : "Failed to load courses. Please try again later.";
+      const errorMessage =
+        error.response?.status === 404
+          ? "No courses found. Please try refreshing."
+          : "Failed to load courses. Please try again later.";
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -45,11 +46,11 @@ const CourseRecommendations = () => {
   const handleMarkComplete = async (title) => {
     try {
       await axios.post(
-        "https://smartpathai-1.onrender.com/mark_completed",
+        "http://localhost:5000/mark_completed",
         { courseTitle: title },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setCompletedCourses(prev => new Set([...prev, title]));
+      setCompletedCourses((prev) => new Set([...prev, title]));
       toast.success(`Marked "${title}" as completed!`);
     } catch (error) {
       toast.error("Failed to update course status");
@@ -81,76 +82,89 @@ const CourseRecommendations = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-  <div className="flex justify-between items-center mb-8">
-    <h1 className="text-3xl font-bold">Recommended Courses</h1>
-    <Button onClick={fetchData} variant="outline" size="sm">
-      <RefreshCw className="mr-2 h-4 w-4" />
-      Refresh
-    </Button>
-  </div>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Recommended Courses</h1>
+        <Button onClick={fetchData} variant="outline" size="sm">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
 
-  {courses.length === 0 ? (
-    <Alert>
-      <AlertDescription>
-        No courses found. Try refreshing or check back later.
-      </AlertDescription>
-    </Alert>
-  ) : (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-      {courses.map((course, index) => (
-        <Card
-          key={index}
-          className={`p-6 rounded-2xl shadow-lg transition-transform transform hover:scale-105 ${
-            completedCourses.has(course.Title) ? "bg-green-50" : "bg-white"
-          }`}
-        >
-          <h3 className="font-semibold text-lg mb-2 truncate">{course.Title}</h3>
-          <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-            {course["Short Intro"]}
-          </p>
-
-          <div className="flex flex-wrap gap-2 mb-4">
-            {course.Skills.split(",").map((skill, i) => (
-              <span key={i} className="text-xs px-2 py-1 bg-gray-200 rounded-lg">
-                {skill.trim()}
-              </span>
-            ))}
-          </div>
-
-          <div className="space-y-1 text-sm mb-4">
-            <p>🏷️ <strong>Category:</strong> {course.Category}</p>
-            <p>⏱️ <strong>Duration:</strong> {course.Duration}</p>
-            <p>⭐ <strong>Rating:</strong> {course.Rating}</p>
-            <p>🌐 <strong>Platform:</strong> {course.Site}</p>
-          </div>
-
-          <div className="flex gap-2 mt-4">
-            <Button
-              className="flex-1"
-              onClick={() => window.open(course.URL, "_blank")}
+      {courses.length === 0 ? (
+        <Alert>
+          <AlertDescription>
+            No courses found. Try refreshing or check back later.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {courses.map((course, index) => (
+            <Card
+              key={index}
+              className={`p-6 rounded-2xl shadow-lg transition-transform transform hover:scale-105 ${
+                completedCourses.has(course.Title) ? "bg-green-50" : "bg-white"
+              }`}
             >
-              <PlayCircle className="mr-2 h-4 w-4" />
-              View Course
-            </Button>
+              <h3 className="font-semibold text-lg mb-2 truncate">
+                {course.Title}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                {course["Short Intro"]}
+              </p>
 
-            <Button
-              variant={
-                completedCourses.has(course.Title) ? "secondary" : "default"
-              }
-              onClick={() => handleMarkComplete(course.Title)}
-              disabled={completedCourses.has(course.Title)}
-            >
-              <CheckCircle className="mr-2 h-4 w-4" />
-              {completedCourses.has(course.Title) ? "Completed" : "Mark Done"}
-            </Button>
-          </div>
-        </Card>
-      ))}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {course.Skills.split(",").map((skill, i) => (
+                  <span
+                    key={i}
+                    className="text-xs px-2 py-1 bg-gray-200 rounded-lg"
+                  >
+                    {skill.trim()}
+                  </span>
+                ))}
+              </div>
+
+              <div className="space-y-1 text-sm mb-4">
+                <p>
+                  🏷️ <strong>Category:</strong> {course.Category}
+                </p>
+                <p>
+                  ⏱️ <strong>Duration:</strong> {course.Duration}
+                </p>
+                <p>
+                  ⭐ <strong>Rating:</strong> {course.Rating}
+                </p>
+                <p>
+                  🌐 <strong>Platform:</strong> {course.Site}
+                </p>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <Button
+                  className="flex-1"
+                  onClick={() => window.open(course.URL, "_blank")}
+                >
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  View Course
+                </Button>
+
+                <Button
+                  variant={
+                    completedCourses.has(course.Title) ? "secondary" : "default"
+                  }
+                  onClick={() => handleMarkComplete(course.Title)}
+                  disabled={completedCourses.has(course.Title)}
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  {completedCourses.has(course.Title)
+                    ? "Completed"
+                    : "Mark Done"}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
-  )}
-</div>
-
-    
   );
 };
 

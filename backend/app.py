@@ -23,7 +23,7 @@ app = Flask(__name__)
 from flask_cors import CORS
 
 # Get allowed origins from environment variable
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:3000,http://localhost:5173").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:8081,http://localhost:3000,http://localhost:5173").split(",")
 
 CORS(app, resources={
     r"/*": {
@@ -39,7 +39,13 @@ CORS(app, resources={
 def after_request(response):
     origin = request.headers.get('Origin')
     
-    if origin in ALLOWED_ORIGINS:
+    # Allow all localhost origins for development
+    if origin and ('localhost' in origin or '127.0.0.1' in origin):
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    elif origin in ALLOWED_ORIGINS:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -48,12 +54,21 @@ def after_request(response):
     return response
 
 @app.route('/<path:path>', methods=['OPTIONS'])
-def handle_options(path):
+@app.route('/', methods=['OPTIONS'])
+def handle_options(path=None):
     response = app.make_default_options_response()
     headers = response.headers
-
-    # Set CORS headers explicitly
-    headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+    
+    origin = request.headers.get('Origin')
+    
+    # Allow all localhost origins for development
+    if origin and ('localhost' in origin or '127.0.0.1' in origin):
+        headers['Access-Control-Allow-Origin'] = origin
+    elif origin in ALLOWED_ORIGINS:
+        headers['Access-Control-Allow-Origin'] = origin
+    else:
+        headers['Access-Control-Allow-Origin'] = '*'
+    
     headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
     headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     headers['Access-Control-Allow-Credentials'] = 'true'

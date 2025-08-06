@@ -22,7 +22,7 @@ const Profile = () => {
           return;
         }
 
-        const response = await axios.get("https://smartpathai-1.onrender.com/profile", {
+        const response = await axios.get("http://localhost:5000/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -41,7 +41,7 @@ const Profile = () => {
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
-      await axios.put("https://smartpathai-1.onrender.com/profile", profile, {
+      await axios.put("http://localhost:5000/profile", profile, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success("Profile updated successfully!");
@@ -61,26 +61,39 @@ const Profile = () => {
     }
   };
 
-  if (loading) return <div className="text-center py-10">Loading profile...</div>;
-  if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
-  if (!profile) return <div className="text-center py-10">No profile data available.</div>;
+  if (loading)
+    return <div className="text-center py-10">Loading profile...</div>;
+  if (error)
+    return <div className="text-center py-10 text-red-500">{error}</div>;
+  if (!profile)
+    return <div className="text-center py-10">No profile data available.</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile Settings</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">
+          Profile Settings
+        </h1>
 
         <Card className="p-6 mb-8">
           <div className="flex items-center gap-6 mb-6">
             <div className="relative w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
               {profilePic ? (
-                <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
+                <img
+                  src={profilePic}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <User className="h-12 w-12 text-gray-400" />
               )}
               <label className="absolute bottom-0 right-0 bg-white p-1 rounded-full cursor-pointer shadow">
                 <Upload className="h-4 w-4 text-gray-600" />
-                <input type="file" className="hidden" onChange={handleFileChange} />
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
               </label>
             </div>
             <div>
@@ -90,7 +103,9 @@ const Profile = () => {
                     type="text"
                     className="border p-2 rounded-lg"
                     value={profile.name}
-                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                    onChange={(e) =>
+                      setProfile({ ...profile, name: e.target.value })
+                    }
                   />
                 ) : (
                   profile.name || "No Name"
@@ -112,14 +127,19 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">Learning Pace</label>
+              <label className="text-sm font-medium text-gray-700">
+                Learning Pace
+              </label>
               <select
                 className="mt-1 w-full p-2 border border-gray-200 rounded-lg"
                 value={profile.preferences?.pace || "Moderate"}
                 onChange={(e) =>
                   setProfile({
                     ...profile,
-                    preferences: { ...(profile.preferences || {}), pace: e.target.value },
+                    preferences: {
+                      ...(profile.preferences || {}),
+                      pace: e.target.value,
+                    },
                   })
                 }
               >
@@ -130,14 +150,19 @@ const Profile = () => {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">Content Format</label>
+              <label className="text-sm font-medium text-gray-700">
+                Content Format
+              </label>
               <select
                 className="mt-1 w-full p-2 border border-gray-200 rounded-lg"
                 value={profile.preferences?.content_format || "Video"}
                 onChange={(e) =>
                   setProfile({
                     ...profile,
-                    preferences: { ...(profile.preferences || {}), content_format: e.target.value },
+                    preferences: {
+                      ...(profile.preferences || {}),
+                      content_format: e.target.value,
+                    },
                   })
                 }
               >
@@ -152,11 +177,19 @@ const Profile = () => {
         <div className="mt-8 flex justify-end space-x-4">
           {editing ? (
             <>
-              <Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
-              <Button onClick={handleSave}><Save className="h-4 w-4 mr-2" />Save Changes</Button>
+              <Button variant="outline" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave}>
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </Button>
             </>
           ) : (
-            <Button onClick={() => setEditing(true)}><Edit3 className="h-4 w-4 mr-2" />Edit Profile</Button>
+            <Button onClick={() => setEditing(true)}>
+              <Edit3 className="h-4 w-4 mr-2" />
+              Edit Profile
+            </Button>
           )}
         </div>
       </div>

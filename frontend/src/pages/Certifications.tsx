@@ -19,31 +19,33 @@ const Certifications = () => {
   }, []);
 
   const fetchCertifications = async () => {
-  try {
-    const requestConfig = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      withCredentials: true,
-    };
+    try {
+      const requestConfig = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      };
 
-    const [certRes, earnedRes] = await Promise.all([
-      axios.get("https://smartpathai-1.onrender.com/recommend_certifications", requestConfig),
-      axios.get("https://smartpathai-1.onrender.com/earned_certifications", requestConfig),
-    ]);
+      const [certRes, earnedRes] = await Promise.all([
+        axios.get(
+          "http://localhost:5000/recommend_certifications",
+          requestConfig
+        ),
+        axios.get("http://localhost:5000/earned_certifications", requestConfig),
+      ]);
 
-    // Directly set the certifications from the received JSON response
-    setCertifications(certRes.data);
-    setEarnedCertifications(new Set(earnedRes.data));
-  } catch (error) {
-    console.error("Error fetching certifications:", error);
-    toast.error("Failed to fetch certifications. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+      // Directly set the certifications from the received JSON response
+      setCertifications(certRes.data);
+      setEarnedCertifications(new Set(earnedRes.data));
+    } catch (error) {
+      console.error("Error fetching certifications:", error);
+      toast.error("Failed to fetch certifications. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const markAsCompleted = async (title) => {
     if (!title) {
@@ -53,7 +55,7 @@ const Certifications = () => {
 
     try {
       await axios.post(
-        "https://smartpathai-1.onrender.com/mark_certification_completed",
+        "http://localhost:5000/mark_certification_completed",
         { title },
         {
           headers: {
@@ -79,7 +81,9 @@ const Certifications = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">📜 Certifications</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">
+          📜 Certifications
+        </h1>
 
         {/* Search Input */}
         <div className="relative mb-8">
@@ -124,7 +128,9 @@ const Certifications = () => {
                     <p className="text-sm text-gray-500">
                       🔥 Level: {cert.difficulty}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">{cert.description}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {cert.description}
+                    </p>
                   </div>
                 </div>
 
@@ -141,13 +147,17 @@ const Certifications = () => {
                 {/* Mark as Complete Button */}
                 <Button
                   className={`w-full mt-2 ${
-                    earnedCertifications.has(cert.name) ? "bg-green-500 cursor-not-allowed" : ""
+                    earnedCertifications.has(cert.name)
+                      ? "bg-green-500 cursor-not-allowed"
+                      : ""
                   }`}
                   disabled={earnedCertifications.has(cert.name)}
                   onClick={() => markAsCompleted(cert.name)}
                   aria-label={`Mark ${cert.name} as completed`}
                 >
-                  {earnedCertifications.has(cert.name) ? "Completed" : "Mark Complete"}
+                  {earnedCertifications.has(cert.name)
+                    ? "Completed"
+                    : "Mark Complete"}
                 </Button>
               </Card>
             ))
