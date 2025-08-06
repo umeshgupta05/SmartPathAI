@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -7,21 +7,32 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Brain, Star, RefreshCw, AlertTriangle } from "lucide-react";
 
+interface Question {
+  question: string;
+  options: string[];
+  correct_answer: string;
+}
+
+interface QuizData {
+  questions: Question[];
+  topic?: string;
+}
+
 const Quiz = () => {
-  const [quiz, setQuiz] = useState(null);
-  const [userAnswers, setUserAnswers] = useState({});
-  const [score, setScore] = useState(null);
+  const [quiz, setQuiz] = useState<QuizData | null>(null);
+  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
+  const [score, setScore] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
 
-  const fetchQuiz = async () => {
+  const fetchQuiz = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const token = localStorage.getItem("token");
       if (!token) {
         setError("Please log in to access the quiz.");
@@ -29,14 +40,17 @@ const Quiz = () => {
         return;
       }
 
-      const response = await fetch("https://smartpathai-1.onrender.com/generate_quiz", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
+      const response = await fetch(
+        "https://smartpathai-1.onrender.com/generate_quiz",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -59,22 +73,25 @@ const Quiz = () => {
     } catch (err) {
       setError(err.message);
       if (retryCount < MAX_RETRIES) {
-        setRetryCount(prev => prev + 1);
+        setRetryCount((prev) => prev + 1);
         setTimeout(fetchQuiz, 2000); // Retry after 2 seconds
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [retryCount]);
 
   useEffect(() => {
     fetchQuiz();
-  }, []);
+  }, [fetchQuiz]);
 
   const handleAnswerChange = (question, answer) => {
-    setUserAnswers(prev => {
+    setUserAnswers((prev) => {
       const updatedAnswers = { ...prev, [question]: answer };
-      setProgress((Object.keys(updatedAnswers).length / (quiz?.questions?.length || 1)) * 100);
+      setProgress(
+        (Object.keys(updatedAnswers).length / (quiz?.questions?.length || 1)) *
+          100
+      );
       return updatedAnswers;
     });
   };
@@ -93,18 +110,21 @@ const Quiz = () => {
         return acc;
       }, {});
 
-      const response = await fetch("https://smartpathai-1.onrender.com/check_answers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          answers: userAnswers,
-          correct_answers: correctAnswers,
-        }),
-      });
+      const response = await fetch(
+        "https://smartpathai-1.onrender.com/check_answers",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            answers: userAnswers,
+            correct_answers: correctAnswers,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to submit answers");
@@ -136,11 +156,7 @@ const Quiz = () => {
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="ml-2">{error}</AlertDescription>
           </Alert>
-          <Button 
-            onClick={fetchQuiz} 
-            className="mt-4 w-full"
-            variant="outline"
-          >
+          <Button onClick={fetchQuiz} className="mt-4 w-full" variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Try Again
           </Button>
@@ -165,13 +181,19 @@ const Quiz = () => {
               <h3 className="font-medium text-lg mb-2">
                 {idx + 1}. {q.question}
               </h3>
-              <RadioGroup 
+              <RadioGroup
                 onValueChange={(value) => handleAnswerChange(q.question, value)}
                 value={userAnswers[q.question]}
               >
                 {q.options.map((option, optionIdx) => (
-                  <div key={optionIdx} className="flex items-center space-x-2 mb-2">
-                    <RadioGroupItem value={option} id={`q${idx}-${optionIdx}`} />
+                  <div
+                    key={optionIdx}
+                    className="flex items-center space-x-2 mb-2"
+                  >
+                    <RadioGroupItem
+                      value={option}
+                      id={`q${idx}-${optionIdx}`}
+                    />
                     <Label htmlFor={`q${idx}-${optionIdx}`}>{option}</Label>
                   </div>
                 ))}
@@ -179,9 +201,12 @@ const Quiz = () => {
             </div>
           ))}
           <div className="flex flex-col gap-4 mt-6">
-            <Button 
-              onClick={handleSubmit} 
-              disabled={!quiz?.questions || Object.keys(userAnswers).length !== quiz?.questions?.length}
+            <Button
+              onClick={handleSubmit}
+              disabled={
+                !quiz?.questions ||
+                Object.keys(userAnswers).length !== quiz?.questions?.length
+              }
               className="w-full"
             >
               Submit Answers
@@ -189,14 +214,18 @@ const Quiz = () => {
             {score !== null && (
               <Alert className={score >= 70 ? "bg-green-50" : "bg-yellow-50"}>
                 <AlertDescription className="flex items-center gap-2">
-                  <Star className={score >= 70 ? "text-green-500" : "text-yellow-500"} />
+                  <Star
+                    className={
+                      score >= 70 ? "text-green-500" : "text-yellow-500"
+                    }
+                  />
                   Your score: {score}%
                 </AlertDescription>
               </Alert>
             )}
-            <Button 
-              variant="outline" 
-              onClick={fetchQuiz} 
+            <Button
+              variant="outline"
+              onClick={fetchQuiz}
               className="w-full flex items-center justify-center gap-2"
             >
               <RefreshCw className="h-4 w-4" />

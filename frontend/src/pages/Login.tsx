@@ -31,32 +31,34 @@ const api = axios.create({
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedInterests, setSelectedInterests] = useState([]);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const navigate = useNavigate();
 
   // Dynamic schema based on isSignUp state
-  const authSchema = z.object({
-    name: isSignUp 
-      ? z.string().min(2, "Name must be at least 2 characters")
-      : z.string().optional(),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: isSignUp
-      ? z.string().min(6, "Confirm password is required")
-      : z.string().optional(),
-    interests: z.array(z.string()).optional(),
-  }).refine(
-    (data) => {
-      if (isSignUp) {
-        return data.password === data.confirmPassword;
+  const authSchema = z
+    .object({
+      name: isSignUp
+        ? z.string().min(2, "Name must be at least 2 characters")
+        : z.string().optional(),
+      email: z.string().email("Invalid email address"),
+      password: z.string().min(6, "Password must be at least 6 characters"),
+      confirmPassword: isSignUp
+        ? z.string().min(6, "Confirm password is required")
+        : z.string().optional(),
+      interests: z.array(z.string()).optional(),
+    })
+    .refine(
+      (data) => {
+        if (isSignUp) {
+          return data.password === data.confirmPassword;
+        }
+        return true;
+      },
+      {
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
       }
-      return true;
-    },
-    {
-      message: "Passwords do not match",
-      path: ["confirmPassword"],
-    }
-  );
+    );
 
   const form = useForm({
     resolver: zodResolver(authSchema),
@@ -82,7 +84,7 @@ const Login = () => {
   }, [isSignUp, form]);
 
   // Handle interest selection
-  const handleInterestChange = (interest) => {
+  const handleInterestChange = (interest: string) => {
     setSelectedInterests((prev) =>
       prev.includes(interest)
         ? prev.filter((i) => i !== interest)
@@ -106,7 +108,7 @@ const Login = () => {
         }),
       };
 
-      console.log("Submitting payload:", payload);
+      // console.log("Submitting payload:", payload); // Removed for production
 
       const response = await api.post("/auth", payload);
       const { token, user } = response.data;
@@ -118,12 +120,13 @@ const Login = () => {
       toast.success(
         isSignUp ? "Account created successfully!" : "Welcome back!"
       );
-      
+
       navigate("/dashboard");
     } catch (error) {
       console.error("Auth error:", error);
       toast.error(
-        error.response?.data?.message || "Authentication failed. Please try again."
+        error.response?.data?.message ||
+          "Authentication failed. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -183,7 +186,7 @@ const Login = () => {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input 
+                      <Input
                         type="email"
                         placeholder="Enter your email"
                         {...field}
@@ -233,14 +236,21 @@ const Login = () => {
                   />
 
                   <div className="space-y-4">
-                    <h3 className="font-medium text-sm">Select Your Interests</h3>
+                    <h3 className="font-medium text-sm">
+                      Select Your Interests
+                    </h3>
                     <div className="grid grid-cols-2 gap-4">
                       {interests.map((interest) => (
-                        <div key={interest} className="flex items-center space-x-2">
+                        <div
+                          key={interest}
+                          className="flex items-center space-x-2"
+                        >
                           <Checkbox
                             id={interest}
                             checked={selectedInterests.includes(interest)}
-                            onCheckedChange={() => handleInterestChange(interest)}
+                            onCheckedChange={() =>
+                              handleInterestChange(interest)
+                            }
                           />
                           <label
                             htmlFor={interest}
@@ -255,16 +265,12 @@ const Login = () => {
                 </>
               )}
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  "Please wait..."
-                ) : (
-                  isSignUp ? "Create Account" : "Sign In"
-                )}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading
+                  ? "Please wait..."
+                  : isSignUp
+                    ? "Create Account"
+                    : "Sign In"}
               </Button>
             </form>
           </Form>

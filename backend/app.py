@@ -10,21 +10,24 @@ from datetime import timedelta, datetime
 import random
 import os
 import json
-from flask_jwt_extended import JWTManager, create_access_token
-from datetime import timedelta
+import base64
+from io import BytesIO
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 
 # Updated CORS configuration
 from flask_cors import CORS
 
+# Get allowed origins from environment variable
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:3000,http://localhost:5173").split(",")
+
 CORS(app, resources={
     r"/*": {
-        "origins": [
-            "https://smart-path-ai.vercel.app",
-            "http://localhost:3000",
-            "http://localhost:5173"
-        ],
+        "origins": ALLOWED_ORIGINS,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "supports_credentials": True
@@ -35,13 +38,8 @@ CORS(app, resources={
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    allowed_origins = [
-        "https://smart-path-ai.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:5173"
-    ]
-
-    if origin in allowed_origins:
+    
+    if origin in ALLOWED_ORIGINS:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -63,15 +61,15 @@ def handle_options(path):
     return response
     
 # JWT Configuration
-app.config["JWT_SECRET_KEY"] = "your_secret_key"
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "your_secret_key")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_HOURS", "1")))
 app.config["JWT_TOKEN_LOCATION"] = ["headers", "cookies"]
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False  # Disable CSRF tokens for simplicity
 
 jwt = JWTManager(app)
 
 # MongoDB Connection
-app.config["MONGO_URI"] = "mongodb+srv://umeshgupta050104:767089amma@cluster0.qez0w.mongodb.net/userdb?retryWrites=true&w=majority&appName=Cluster0"
+app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://localhost:27017/smartpathai")
 mongo = PyMongo(app)
 
 # Ensure collections exist
@@ -82,14 +80,23 @@ def ensure_collections():
 
 ensure_collections()
 
-GOOGLE_API_KEY = "AIzaSyCC8Me5ZHBVBEuI3OZkoSZUF9sykvETxa8"
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise ValueError("GOOGLE_API_KEY environment variable is required")
 genai.configure(api_key=GOOGLE_API_KEY)
 gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 # Configure IBM Watson NLU
-ibm_authenticator = IAMAuthenticator("zDOlhxO7-cEeZSrbF3OqMEdlmToSEdBscU4_fpmCJCuu")
-nlu = NaturalLanguageUnderstandingV1(version="2023-06-15", authenticator=ibm_authenticator)
-nlu.set_service_url("https://api.au-syd.natural-language-understanding.watson.cloud.ibm.com/instances/54be911a-88cf-4441-9695-a0422de1c839")
+IBM_API_KEY = os.getenv("IBM_API_KEY")
+IBM_SERVICE_URL = os.getenv("IBM_SERVICE_URL")
+IBM_VERSION = os.getenv("IBM_VERSION", "2023-06-15")
+
+if not IBM_API_KEY or not IBM_SERVICE_URL:
+    raise ValueError("IBM_API_KEY and IBM_SERVICE_URL environment variables are required")
+
+ibm_authenticator = IAMAuthenticator(IBM_API_KEY)
+nlu = NaturalLanguageUnderstandingV1(version=IBM_VERSION, authenticator=ibm_authenticator)
+nlu.set_service_url(IBM_SERVICE_URL)
 
 @app.route("/")
 def home():
@@ -763,7 +770,7 @@ def chatbot():
 
         return jsonify({"response": chatbot_reply}), 200
 
-    except ApiException as e:
+    except Exception as e:
         print(f"IBM Watson API Error: {e}")
         return jsonify({"message": "Chatbot service is currently unavailable."}), 500
 
