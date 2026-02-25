@@ -4,7 +4,7 @@
   "description": "AI-powered learning path recommendation system",
   "scripts": {
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
-    "backend": "cd backend && python app.py",
+    "backend": "cd backend && python manage.py runserver 0.0.0.0:5000",
     "frontend": "cd frontend && npm run dev",
     "install-all": "cd frontend && npm install",
     "build": "cd frontend && npm run build"
@@ -14,7 +14,7 @@
     "learning",
     "education",
     "react",
-    "flask"
+    "django"
   ],
   "author": "SmartPathAI Team",
   "license": "MIT",

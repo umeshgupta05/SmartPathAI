@@ -21,8 +21,10 @@ SmartPathAI/
 │   ├── vite.config.ts      # Vite configuration
 │   ├── tailwind.config.ts  # Tailwind CSS config
 │   └── tsconfig.json       # TypeScript config
-├── backend/                 # Flask backend application
-│   ├── app.py              # Main Flask application
+├── backend/                 # Django backend application
+│   ├── manage.py           # Django entry point
+│   ├── core/               # API app (models + views + urls)
+│   ├── smartpathai_backend/# Django settings + project urls
 │   └── requirements.txt    # Python dependencies
 ├── package.json            # Root package.json for monorepo
 └── README.md
@@ -34,7 +36,7 @@ SmartPathAI/
   Personalized learning paths based on user interests, quiz scores, and interaction history.
 
 - 🤖 **Chatbot Assistance**  
-  Integrated chatbot using **IBM Watson** and **Gemini** for real-time help, query resolution, and sentiment feedback.
+  Simple rule-based chatbot responses for interview/demo usage.
 
 - 📈 **Performance Tracking & Analytics**  
   Visualizations of skill progression, quiz performance, and course engagement using `Chart.js`.
@@ -47,9 +49,9 @@ SmartPathAI/
 
 ## 🛠️ Tech Stack
 
-| Frontend        | Backend        | AI/ML Models             | Database |
-| --------------- | -------------- | ------------------------ | -------- |
-| React.js + Vite | Flask (Python) | Gemini, BERT, IBM Watson | MongoDB  |
+| Frontend        | Backend         | Assistant Logic          | Database |
+| --------------- | --------------- | ------------------------ | -------- |
+| React.js + Vite | Django (Python) | Simple rule-based helper | Oracle   |
 
 **Libraries & Tools:**
 
@@ -158,35 +160,33 @@ cp .env.example .env
 4. **Configure environment variables in `.env`:**
 
 ```bash
-# Flask Configuration
-JWT_SECRET_KEY=your_secure_secret_key_here
-PORT=5000
+# Django Configuration
+DJANGO_SECRET_KEY=your_secure_secret_key_here
+DEBUG=true
+ALLOWED_HOSTS=localhost,127.0.0.1
 
-# MongoDB Configuration
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/database
-
-# Google Gemini AI
-GOOGLE_API_KEY=your_google_gemini_api_key
-
-# IBM Watson NLU
-IBM_API_KEY=your_ibm_watson_api_key
-IBM_SERVICE_URL=your_ibm_watson_service_url
-IBM_VERSION=2023-06-15
+# Oracle Configuration
+DB_NAME=XE
+DB_USER=smartpathai
+DB_PASSWORD=your_oracle_password
+DB_HOST=localhost
+DB_PORT=1521
 
 # CORS Configuration
-ALLOWED_ORIGINS=http://localhost:8080,https://your-frontend-domain.com
+ALLOWED_ORIGINS=http://localhost:8080,http://localhost:5173
 ```
 
-5. **Verify setup:**
+5. **Run migrations:**
 
 ```bash
-python check_setup.py
+python manage.py makemigrations
+python manage.py migrate
 ```
 
-6. **Run the Flask application:**
+6. **Run the Django application on port 5000:**
 
 ```bash
-python app.py
+python manage.py runserver 0.0.0.0:5000
 ```
 
 ## 🔧 Available Scripts
