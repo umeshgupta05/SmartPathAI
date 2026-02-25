@@ -58,8 +58,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.oracle",
         "NAME": os.getenv("DB_NAME", "XE"),
-        "USER": os.getenv("DB_USER", "system"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "767089"),
+        "USER": os.getenv("DB_USER", "smartpathai"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "smartpathai"),
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "1521"),
         "CONN_MAX_AGE": 60,
