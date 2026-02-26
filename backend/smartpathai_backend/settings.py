@@ -67,17 +67,25 @@ TEMPLATES = [
 WSGI_APPLICATION = "smartpathai_backend.wsgi.application"
 ASGI_APPLICATION = "smartpathai_backend.asgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "core.oracle_legacy_backend",
-        "NAME": os.getenv("DB_NAME", "XE"),
-        "USER": os.getenv("DB_USER", "smartpathai"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "smartpathai"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "1521"),
-        "CONN_MAX_AGE": 60,
+if os.getenv("RENDER") or os.getenv("USE_SQLITE") == "true":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "core.oracle_legacy_backend",
+            "NAME": os.getenv("DB_NAME", "XE"),
+            "USER": os.getenv("DB_USER", "smartpathai"),
+            "PASSWORD": os.getenv("DB_PASSWORD", "smartpathai"),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "1521"),
+            "CONN_MAX_AGE": 60,
+        }
+    }
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
