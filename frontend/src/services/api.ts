@@ -1,11 +1,10 @@
 import axios, { AxiosResponse } from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE_URL = "/api";
 
 // Create axios instance with default configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
@@ -22,7 +21,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor to handle common errors
@@ -35,7 +34,7 @@ api.interceptors.response.use(
       window.location.href = "/auth";
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 // API service methods

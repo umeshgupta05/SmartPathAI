@@ -4,14 +4,17 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import {
   Brain,
-  Book,
+  BookOpen,
   Trophy,
-  ChartBar,
+  TrendingUp,
   MessageCircle,
   Send,
+  X,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 interface DashboardData {
@@ -20,9 +23,17 @@ interface DashboardData {
   certifications: number;
   overallProgress: number;
   recommendedCourses: Array<{
+    Title?: string;
+    "Short Intro"?: string;
+    Skills?: string;
+    Category?: string;
+    Duration?: string;
+    Rating?: string;
+    Site?: string;
+    URL?: string;
+    // backwards compat with old shape
     title?: string;
     description?: string;
-    level?: string;
   }>;
 }
 
@@ -30,6 +41,41 @@ interface Message {
   sender: string;
   text: string;
 }
+
+const STAT_CARDS = [
+  {
+    key: "course",
+    label: "Current Course",
+    icon: Brain,
+    gradient: "from-blue-500 to-blue-600",
+    shadow: "shadow-blue-500/20",
+    getValue: (d: DashboardData) => d.currentCourse,
+  },
+  {
+    key: "completed",
+    label: "Courses Completed",
+    icon: BookOpen,
+    gradient: "from-teal-500 to-emerald-600",
+    shadow: "shadow-teal-500/20",
+    getValue: (d: DashboardData) => `${d.completedCourses} Courses`,
+  },
+  {
+    key: "certs",
+    label: "Certifications",
+    icon: Trophy,
+    gradient: "from-amber-500 to-orange-500",
+    shadow: "shadow-amber-500/20",
+    getValue: (d: DashboardData) => `${d.certifications} Earned`,
+  },
+  {
+    key: "progress",
+    label: "Overall Progress",
+    icon: TrendingUp,
+    gradient: "from-violet-500 to-purple-600",
+    shadow: "shadow-violet-500/20",
+    getValue: (d: DashboardData) => `${d.overallProgress}%`,
+  },
+];
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData>({
@@ -43,36 +89,26 @@ const Dashboard = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         const token = localStorage.getItem("token");
-        if (!token) {
-          navigate("/login");
-          return;
-        }
+        if (!token) { navigate("/auth"); return; }
 
-        const response = await axios.get("http://localhost:5000/dashboard", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+        const response = await axios.get("/api/dashboard", {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           withCredentials: true,
         });
-
-        if (response.data) {
-          setDashboardData(response.data);
-        }
+        if (response.data) setDashboardData(response.data);
       } catch (error) {
         if (axios.isAxiosError(error) && error.response?.status === 401) {
-          // Handle unauthorized access
           localStorage.removeItem("token");
           navigate("/auth");
         } else {
-          console.error("Error fetching dashboard data:", error);
-          toast.error("Failed to fetch dashboard data. Please try again.");
+          toast.error("Failed to load dashboard data.");
         }
       } finally {
         setLoading(false);
@@ -84,147 +120,221 @@ const Dashboard = () => {
   const sendMessage = async () => {
     if (!input.trim()) return;
     const token = localStorage.getItem("token");
-
     const newMessages = [...messages, { sender: "user", text: input }];
     setMessages(newMessages);
     setInput("");
-
+    setSending(true);
     try {
       const response = await axios.post(
-        "http://localhost:5000/chatbot",
+        "/api/chatbot",
         { message: input },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
-      setMessages([
-        ...newMessages,
-        { sender: "bot", text: response.data.response },
-      ]);
-    } catch (error) {
-      console.error("Error fetching chatbot response:", error);
-      toast.error("Failed to send message. Please try again.");
+      setMessages([...newMessages, { sender: "bot", text: response.data.response }]);
+    } catch {
+      toast.error("Failed to send message.");
+    } finally {
+      setSending(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600">Loading dashboard...</p>
-        </div>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <p className="text-gray-400 text-sm">Loading dashboard…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 animate-fade-up">
-            Dashboard
-          </h1>
-          <Button
-            variant="outline"
-            size="icon"
-            className="rounded-full hover:bg-primary/10 hover:text-primary"
-            onClick={() => setChatOpen(!chatOpen)}
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex justify-between items-center"
+      >
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-0.5">Your learning overview</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setChatOpen(!chatOpen)}
+          className="gap-2 rounded-xl border-gray-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
+        >
+          <MessageCircle className="h-4 w-4" />
+          <span className="hidden sm:inline">AI Chat</span>
+        </Button>
+      </motion.div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {STAT_CARDS.map(({ key, label, icon: Icon, gradient, shadow, getValue }, i) => (
+          <motion.div
+            key={key}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.08, duration: 0.4, ease: "easeOut" }}
           >
-            <MessageCircle className="h-5 w-5" />
-          </Button>
-        </div>
+            <Card className={`p-5 border-0 bg-gradient-to-br ${gradient} text-white shadow-lg ${shadow} hover:shadow-xl transition-shadow group`}>
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <p className="text-white/70 text-xs font-medium uppercase tracking-wider">{label}</p>
+                  <p className="text-lg font-bold leading-snug">{getValue(dashboardData)}</p>
+                </div>
+                <div className="p-2 bg-white/15 rounded-xl group-hover:bg-white/25 transition-colors">
+                  <Icon className="h-5 w-5" />
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
 
-        {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="p-6 hover:shadow-lg transition-all animate-fade-up">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Brain className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Current Course</p>
-                <h3 className="font-semibold">{dashboardData.currentCourse}</h3>
-              </div>
-            </div>
-          </Card>
+      {/* Recommended Courses */}
+      {dashboardData.recommendedCourses.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-amber-500" />
+            <h2 className="text-lg font-semibold text-gray-900">Recommended for you</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {dashboardData.recommendedCourses.map((course, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4 + idx * 0.08 }}
+              >
+                <Card className="p-5 border border-gray-100 bg-white hover:shadow-lg hover:border-blue-100 transition-all duration-300 group">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                      <BookOpen className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-gray-900 text-sm group-hover:text-blue-600 transition-colors leading-snug truncate">
+                        {course.Title || course.title || "Untitled"}
+                      </h3>
+                      <p className="text-gray-500 text-xs mt-1 line-clamp-2">
+                        {course["Short Intro"] || course.description || "Start learning now"}
+                      </p>
+                    </div>
+                  </div>
 
-          <Card className="p-6 hover:shadow-lg transition-all animate-fade-up">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-accent/10 rounded-lg">
-                <Book className="h-6 w-6 text-accent" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Courses Completed</p>
-                <h3 className="font-semibold">
-                  {dashboardData.completedCourses} Courses
-                </h3>
-              </div>
-            </div>
-          </Card>
+                  {course.Skills && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {course.Skills.split(",").slice(0, 3).map((s, i) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium">
+                          {s.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-          <Card className="p-6 hover:shadow-lg transition-all animate-fade-up">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Trophy className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Certifications</p>
-                <h3 className="font-semibold">
-                  {dashboardData.certifications} Earned
-                </h3>
-              </div>
-            </div>
-          </Card>
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>{course.Category || ""}</span>
+                    {course.URL ? (
+                      <button
+                        onClick={() => window.open(course.URL, "_blank")}
+                        className="text-blue-500 hover:text-blue-600 font-medium transition-colors"
+                      >
+                        View →
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate("/courses")}
+                        className="text-blue-500 hover:text-blue-600 font-medium transition-colors"
+                      >
+                        View →
+                      </button>
+                    )}
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
-          <Card className="p-6 hover:shadow-lg transition-all animate-fade-up">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-accent/10 rounded-lg">
-                <ChartBar className="h-6 w-6 text-accent" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Overall Progress</p>
-                <h3 className="font-semibold">
-                  {dashboardData.overallProgress}%
-                </h3>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Chatbot */}
+      {/* AI Chatbot Panel */}
+      <AnimatePresence>
         {chatOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed bottom-16 right-6 bg-white shadow-lg rounded-lg w-80 p-4 border border-gray-200"
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="fixed bottom-6 right-6 w-[360px] bg-white rounded-2xl shadow-2xl shadow-gray-300/50 border border-gray-200/80 z-50 overflow-hidden"
           >
-            <div className="h-60 overflow-y-auto mb-4 p-2 border-b">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-blue-600 to-teal-500 text-white">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4" />
+                <span className="font-semibold text-sm">AI Assistant</span>
+              </div>
+              <button onClick={() => setChatOpen(false)} className="hover:bg-white/20 p-1 rounded-lg transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div className="h-64 overflow-y-auto p-4 space-y-2.5">
+              {messages.length === 0 && (
+                <p className="text-gray-400 text-xs text-center pt-20">
+                  Ask me anything about your learning path!
+                </p>
+              )}
               {messages.map((msg, index) => (
-                <div
+                <motion.div
                   key={index}
-                  className={`p-2 my-1 rounded-lg ${msg.sender === "user" ? "bg-blue-100" : "bg-gray-100"}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
+                    msg.sender === "user"
+                      ? "ml-auto bg-blue-500 text-white rounded-br-sm"
+                      : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                  }`}
                 >
                   {msg.text}
-                </div>
+                </motion.div>
               ))}
+              {sending && (
+                <div className="flex items-center gap-1.5 text-gray-400 text-xs">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Thinking…
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-2">
+
+            {/* Input */}
+            <div className="flex items-center gap-2 p-3 border-t border-gray-100">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="flex-1 border rounded p-2"
-                placeholder="Type a message..."
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-200 transition-all"
+                placeholder="Type a message…"
               />
-              <Button onClick={sendMessage}>
+              <Button
+                size="icon"
+                onClick={sendMessage}
+                disabled={!input.trim() || sending}
+                className="rounded-xl bg-blue-500 hover:bg-blue-600 h-9 w-9 transition-colors"
+              >
                 <Send className="h-4 w-4" />
               </Button>
             </div>
           </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 };

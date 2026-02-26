@@ -5,14 +5,14 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Brain, Star, RefreshCw, AlertTriangle } from "lucide-react";
+import { Brain, Star, RefreshCw, AlertTriangle, Loader2, Trophy, CheckCircle, XCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface Question {
   question: string;
   options: string[];
   correct_answer: string;
 }
-
 interface QuizData {
   questions: Question[];
   topic?: string;
@@ -32,35 +32,19 @@ const Quiz = () => {
     try {
       setLoading(true);
       setError(null);
-
       const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Please log in to access the quiz.");
-        setLoading(false);
-        return;
-      }
+      if (!token) { setError("Please log in to access the quiz."); setLoading(false); return; }
 
-      const response = await fetch("http://localhost:5000/generate_quiz", {
+      const response = await fetch("/api/generate_quiz", {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
-
       if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem("token");
-          throw new Error("Session expired. Please log in again.");
-        }
+        if (response.status === 401) { localStorage.removeItem("token"); throw new Error("Session expired."); }
         throw new Error(`Server error: ${response.status}`);
       }
-
       const data = await response.json();
-      if (!data.questions || !Array.isArray(data.questions)) {
-        throw new Error("Invalid quiz data received");
-      }
+      if (!data.questions || !Array.isArray(data.questions)) throw new Error("Invalid quiz data");
 
       setQuiz(data);
       setUserAnswers({});
@@ -69,27 +53,19 @@ const Quiz = () => {
       setRetryCount(0);
     } catch (err) {
       setError(err.message);
-      if (retryCount < MAX_RETRIES) {
-        setRetryCount((prev) => prev + 1);
-        setTimeout(fetchQuiz, 2000); // Retry after 2 seconds
-      }
+      if (retryCount < MAX_RETRIES) { setRetryCount((p) => p + 1); setTimeout(fetchQuiz, 2000); }
     } finally {
       setLoading(false);
     }
   }, [retryCount]);
 
-  useEffect(() => {
-    fetchQuiz();
-  }, [fetchQuiz]);
+  useEffect(() => { fetchQuiz(); }, [fetchQuiz]);
 
-  const handleAnswerChange = (question, answer) => {
+  const handleAnswerChange = (question: string, answer: string) => {
     setUserAnswers((prev) => {
-      const updatedAnswers = { ...prev, [question]: answer };
-      setProgress(
-        (Object.keys(updatedAnswers).length / (quiz?.questions?.length || 1)) *
-          100
-      );
-      return updatedAnswers;
+      const updated = { ...prev, [question]: answer };
+      setProgress((Object.keys(updated).length / (quiz?.questions?.length || 1)) * 100);
+      return updated;
     });
   };
 
@@ -97,33 +73,15 @@ const Quiz = () => {
     try {
       setError(null);
       const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Please log in to submit answers.");
-        return;
-      }
+      if (!token) { setError("Please log in."); return; }
 
-      const correctAnswers = quiz.questions.reduce((acc, q) => {
-        acc[q.question] = q.correct_answer;
-        return acc;
-      }, {});
-
-      const response = await fetch("http://localhost:5000/check_answers", {
+      const correctAnswers = quiz.questions.reduce((acc, q) => { acc[q.question] = q.correct_answer; return acc; }, {});
+      const response = await fetch("/api/check_answers", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          answers: userAnswers,
-          correct_answers: correctAnswers,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ answers: userAnswers, correct_answers: correctAnswers }),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to submit answers");
-      }
-
+      if (!response.ok) throw new Error("Failed to submit answers");
       const data = await response.json();
       setScore(data.score);
     } catch (err) {
@@ -133,101 +91,149 @@ const Quiz = () => {
 
   if (loading) {
     return (
-      <Card className="max-w-3xl mx-auto p-6">
-        <CardContent className="text-center">
-          <RefreshCw className="animate-spin h-8 w-8 mx-auto mb-4" />
-          <p className="text-lg">Loading quiz...</p>
-        </CardContent>
-      </Card>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <p className="text-gray-400 text-sm">Generating quiz…</p>
+      </div>
     );
   }
 
-  if (error) {
+  if (error && !quiz) {
     return (
-      <Card className="max-w-3xl mx-auto p-6">
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="ml-2">{error}</AlertDescription>
-          </Alert>
-          <Button onClick={fetchQuiz} className="mt-4 w-full" variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Try Again
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="p-6 max-w-3xl mx-auto">
+        <Alert variant="destructive" className="rounded-xl">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={fetchQuiz} className="mt-4 gap-2 rounded-xl">
+          <RefreshCw className="h-4 w-4" /> Try Again
+        </Button>
+      </div>
     );
   }
+
+  if (!quiz) return null;
 
   return (
-    <div className="max-w-3xl mx-auto py-10">
-      <Card>
-        <CardHeader className="text-center">
-          <Brain className="w-10 h-10 text-primary mx-auto" />
-          <CardTitle className="text-xl mt-2">
-            Quiz on {quiz?.topic || "Loading..."}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Progress value={progress} className="mb-4" />
-          {quiz?.questions?.map((q, idx) => (
-            <div key={idx} className="mb-6">
-              <h3 className="font-medium text-lg mb-2">
-                {idx + 1}. {q.question}
-              </h3>
-              <RadioGroup
-                onValueChange={(value) => handleAnswerChange(q.question, value)}
-                value={userAnswers[q.question]}
-              >
-                {q.options.map((option, optionIdx) => (
-                  <div
-                    key={optionIdx}
-                    className="flex items-center space-x-2 mb-2"
+    <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between"
+      >
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Quiz</h1>
+          <p className="text-gray-500 text-sm mt-0.5">
+            {quiz.topic ? `Topic: ${quiz.topic}` : "Test your knowledge"}
+          </p>
+        </div>
+        <Button onClick={fetchQuiz} variant="outline" size="sm" className="gap-2 rounded-xl border-gray-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all">
+          <RefreshCw className="h-4 w-4" /> New Quiz
+        </Button>
+      </motion.div>
+
+      {/* Progress bar */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+        <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+          <span>{Object.keys(userAnswers).length} / {quiz.questions.length} answered</span>
+          <span>{Math.round(progress)}%</span>
+        </div>
+        <Progress value={progress} className="h-2 rounded-full" />
+      </motion.div>
+
+      {/* Score Banner */}
+      {score !== null && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={`p-5 rounded-2xl text-center ${
+            score >= 70
+              ? "bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg shadow-teal-500/20"
+              : "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20"
+          }`}
+        >
+          <Trophy className="h-8 w-8 mx-auto mb-2 opacity-90" />
+          <p className="text-2xl font-bold">{score}%</p>
+          <p className="text-white/80 text-sm mt-1">{score >= 70 ? "Great work! 🎉" : "Keep practicing!"}</p>
+        </motion.div>
+      )}
+
+      {/* Questions */}
+      <div className="space-y-5">
+        {quiz.questions.map((q, index) => {
+          const userAnswer = userAnswers[q.question];
+          const isCorrect = score !== null && userAnswer === q.correct_answer;
+          const isWrong = score !== null && userAnswer && userAnswer !== q.correct_answer;
+
+          return (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 + index * 0.06 }}
+            >
+              <Card className={`border transition-all duration-300 ${
+                isCorrect ? "border-teal-200 bg-teal-50/40" :
+                isWrong ? "border-red-200 bg-red-50/40" :
+                "border-gray-100 bg-white"
+              }`}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-900 flex items-start gap-2">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">
+                      {index + 1}
+                    </span>
+                    <span className="pt-0.5">{q.question}</span>
+                    {isCorrect && <CheckCircle className="h-5 w-5 text-teal-500 flex-shrink-0 ml-auto" />}
+                    {isWrong && <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 ml-auto" />}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <RadioGroup
+                    value={userAnswers[q.question] || ""}
+                    onValueChange={(val) => handleAnswerChange(q.question, val)}
+                    className="space-y-2"
                   >
-                    <RadioGroupItem
-                      value={option}
-                      id={`q${idx}-${optionIdx}`}
-                    />
-                    <Label htmlFor={`q${idx}-${optionIdx}`}>{option}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
-          ))}
-          <div className="flex flex-col gap-4 mt-6">
-            <Button
-              onClick={handleSubmit}
-              disabled={
-                !quiz?.questions ||
-                Object.keys(userAnswers).length !== quiz?.questions?.length
-              }
-              className="w-full"
-            >
-              Submit Answers
-            </Button>
-            {score !== null && (
-              <Alert className={score >= 70 ? "bg-green-50" : "bg-yellow-50"}>
-                <AlertDescription className="flex items-center gap-2">
-                  <Star
-                    className={
-                      score >= 70 ? "text-green-500" : "text-yellow-500"
-                    }
-                  />
-                  Your score: {score}%
-                </AlertDescription>
-              </Alert>
-            )}
-            <Button
-              variant="outline"
-              onClick={fetchQuiz}
-              className="w-full flex items-center justify-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Try Another Quiz
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+                    {q.options.map((option, optIdx) => {
+                      const isThisCorrect = score !== null && option === q.correct_answer;
+                      return (
+                        <div
+                          key={optIdx}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer
+                            ${isThisCorrect ? "border-teal-300 bg-teal-50" :
+                              userAnswer === option && isWrong ? "border-red-300 bg-red-50" :
+                              userAnswer === option ? "border-blue-300 bg-blue-50" :
+                              "border-gray-100 hover:border-gray-200 hover:bg-gray-50"}
+                          `}
+                        >
+                          <RadioGroupItem value={option} id={`${index}-${optIdx}`} disabled={score !== null} />
+                          <Label htmlFor={`${index}-${optIdx}`} className="text-sm text-gray-700 cursor-pointer flex-1">
+                            {option}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Submit */}
+      {score === null && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Button
+            onClick={handleSubmit}
+            disabled={Object.keys(userAnswers).length !== quiz.questions.length}
+            className="w-full h-11 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors"
+          >
+            Submit Answers
+          </Button>
+        </motion.div>
+      )}
     </div>
   );
 };

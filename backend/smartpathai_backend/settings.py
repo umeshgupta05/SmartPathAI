@@ -2,8 +2,21 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+import oracledb
 
 load_dotenv()
+
+ORACLE_THICK_MODE = os.getenv("ORACLE_THICK_MODE", "true").lower() == "true"
+ORACLE_CLIENT_LIB_DIR = os.getenv("ORACLE_CLIENT_LIB_DIR", "").strip()
+
+if ORACLE_THICK_MODE:
+    try:
+        if ORACLE_CLIENT_LIB_DIR:
+            oracledb.init_oracle_client(lib_dir=ORACLE_CLIENT_LIB_DIR)
+        else:
+            oracledb.init_oracle_client()
+    except Exception:
+        pass
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -56,7 +69,7 @@ ASGI_APPLICATION = "smartpathai_backend.asgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.oracle",
+        "ENGINE": "core.oracle_legacy_backend",
         "NAME": os.getenv("DB_NAME", "XE"),
         "USER": os.getenv("DB_USER", "smartpathai"),
         "PASSWORD": os.getenv("DB_PASSWORD", "smartpathai"),

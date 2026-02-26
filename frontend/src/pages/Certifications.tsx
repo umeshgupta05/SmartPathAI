@@ -2,168 +2,141 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Award, CheckCircle, Search, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Award, Search, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 const Certifications = () => {
   const [certifications, setCertifications] = useState([]);
   const [earnedCertifications, setEarnedCertifications] = useState(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    fetchCertifications();
-  }, []);
+    const fetchData = async () => {
+      try {
+        const [certRes, earnedRes] = await Promise.all([
+          axios.get("/api/recommend_certifications", { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get("/api/earned_certifications", { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        setCertifications(certRes.data || []);
+        setEarnedCertifications(new Set((earnedRes.data || []).map((c) => c.name)));
+      } catch {
+        toast.error("Failed to load certifications.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [token]);
 
-  const fetchCertifications = async () => {
+  const handleMarkComplete = async (name) => {
     try {
-      const requestConfig = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      };
-
-      const [certRes, earnedRes] = await Promise.all([
-        axios.get(
-          "http://localhost:5000/recommend_certifications",
-          requestConfig
-        ),
-        axios.get("http://localhost:5000/earned_certifications", requestConfig),
-      ]);
-
-      // Directly set the certifications from the received JSON response
-      setCertifications(certRes.data);
-      setEarnedCertifications(new Set(earnedRes.data));
-    } catch (error) {
-      console.error("Error fetching certifications:", error);
-      toast.error("Failed to fetch certifications. Please try again.");
-    } finally {
-      setLoading(false);
+      await axios.post("/api/mark_certification_completed", { certificationName: name }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setEarnedCertifications((prev) => new Set([...prev, name]));
+      toast.success(`"${name}" marked as completed!`);
+    } catch {
+      toast.error("Failed to update certification.");
     }
   };
 
-  const markAsCompleted = async (title) => {
-    if (!title) {
-      toast.error("Invalid certification title");
-      return;
-    }
-
-    try {
-      await axios.post(
-        "http://localhost:5000/mark_certification_completed",
-        { title },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          withCredentials: true,
-        }
-      );
-
-      setEarnedCertifications((prev) => new Set([...prev, title]));
-      toast.success(`✅ "${title}" marked as completed!`);
-    } catch (error) {
-      console.error("Error marking certification:", error);
-      toast.error("Failed to mark certification as completed.");
-    }
-  };
-
-  const filteredCertifications = certifications.filter((cert) =>
-    cert.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = certifications.filter((c) =>
+    c.name?.toLowerCase().includes(search.toLowerCase()) ||
+    c.provider?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">
-          📜 Certifications
-        </h1>
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <p className="text-gray-400 text-sm">Loading certifications…</p>
+      </div>
+    );
+  }
 
-        {/* Search Input */}
-        <div className="relative mb-8">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <Input
-            aria-label="Search certifications"
-            placeholder="Search certifications..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row sm:items-end justify-between gap-4"
+      >
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Certifications</h1>
+          <p className="text-gray-500 text-sm mt-0.5">Recommended certifications for your path</p>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search certifications…"
+            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-200 w-64 transition-all"
           />
         </div>
+      </motion.div>
 
-        {/* Certifications Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading ? (
-            <div className="flex justify-center items-center col-span-full">
-              <Loader2 className="h-12 w-12 text-gray-400 animate-spin" />
-            </div>
-          ) : (
-            filteredCertifications.map((cert, index) => (
-              <Card
+      {filtered.length === 0 ? (
+        <p className="text-center text-gray-400 py-12 text-sm">No certifications found.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filtered.map((cert, index) => {
+            const isEarned = earnedCertifications.has(cert.name);
+            return (
+              <motion.div
                 key={index}
-                className={`p-6 hover:shadow-lg transition-all ${
-                  earnedCertifications.has(cert.name) ? "border-green-400" : ""
-                }`}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.06 }}
               >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="p-3 bg-primary/10 rounded-lg">
-                    <Award className="h-6 w-6 text-primary" />
+                <Card className={`p-5 border transition-all duration-300 hover:shadow-lg group ${
+                  isEarned ? "border-amber-200 bg-amber-50/30" : "border-gray-100 bg-white hover:border-blue-100"
+                }`}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      isEarned ? "bg-amber-100" : "bg-blue-50 group-hover:bg-blue-100"
+                    } transition-colors`}>
+                      <Award className={`h-5 w-5 ${isEarned ? "text-amber-600" : "text-blue-500"}`} />
+                    </div>
+                    {isEarned && (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                        <CheckCircle className="h-3 w-3" /> Earned
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <h3 className="font-semibold flex items-center gap-2">
-                      {cert.name}
-                      {earnedCertifications.has(cert.name) && (
-                        <Badge className="bg-green-100 text-green-700">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Completed
-                        </Badge>
-                      )}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      🔥 Level: {cert.difficulty}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {cert.description}
-                    </p>
-                  </div>
-                </div>
 
-                {/* Start Certification Button */}
-                <Button
-                  className="w-full"
-                  onClick={() => window.open(cert.link, "_blank")}
-                  disabled={!cert.link}
-                  aria-label={`Start ${cert.name} certification`}
-                >
-                  Start Certification
-                </Button>
+                  <h3 className="font-semibold text-gray-900 text-sm mb-1 group-hover:text-blue-600 transition-colors">{cert.name}</h3>
+                  <p className="text-gray-400 text-xs mb-3">{cert.provider}</p>
+                  {cert.skills && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {(typeof cert.skills === "string" ? cert.skills.split(",") : cert.skills).slice(0, 3).map((s, i) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium">
+                          {String(s).trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                {/* Mark as Complete Button */}
-                <Button
-                  className={`w-full mt-2 ${
-                    earnedCertifications.has(cert.name)
-                      ? "bg-green-500 cursor-not-allowed"
-                      : ""
-                  }`}
-                  disabled={earnedCertifications.has(cert.name)}
-                  onClick={() => markAsCompleted(cert.name)}
-                  aria-label={`Mark ${cert.name} as completed`}
-                >
-                  {earnedCertifications.has(cert.name)
-                    ? "Completed"
-                    : "Mark Complete"}
-                </Button>
-              </Card>
-            ))
-          )}
+                  <Button
+                    size="sm"
+                    onClick={() => handleMarkComplete(cert.name)}
+                    disabled={isEarned}
+                    className={`w-full rounded-xl text-xs h-8 transition-colors ${
+                      isEarned
+                        ? "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100"
+                        : "bg-blue-500 hover:bg-blue-600 text-white"
+                    }`}
+                  >
+                    {isEarned ? "Completed" : "Mark Complete"}
+                  </Button>
+                </Card>
+              </motion.div>
+            );
+          })}
         </div>
-      </div>
+      )}
     </div>
   );
 };
